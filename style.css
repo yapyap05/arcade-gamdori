@@ -235,37 +235,3 @@ body{
     border: 1px solid rgba(255,255,255,.14);
     color: var(--text);
 }
-
-/* 공통 배경 처리 */
-.carousel-bg {
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  position: relative;
-}
-
-/* 텍스트 가독성용 오버레이 */
-.carousel-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.carousel-caption {
-  position: relative;
-  z-index: 2;
-}
-
-/* 각 카드별 배경 이미지 */
-.bg-multi {
-  background-image: url("/assets/carousel_multi.png");
-}
-
-.bg-memory {
-  background-image: url("/assets/carousel_memory.png");
-}
-
-.bg-word {
-  background-image: url("/assets/carousel_word.png");
-}
