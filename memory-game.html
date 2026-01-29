@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>🇲🇴 마카오에 가면</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="py-4">
+<div class="wrap px-3">
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1 neon-title"><span class="text-white-50">마카오에 가면 🔎</span></h1>
+            <div class="text-white-50 small">
+                <span class="mono">5초안에 외우고 5초 안에 클릭!</span>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <button id="btnStart" class="btn btn-neon">시작</button>
+<!--            <button id="btnRestartStage" class="btn btn-outline-light">현재 단계 재시작</button>-->
+            <button id="btnRestartAll" class="btn btn-neon2">처음부터</button>
+            <button id="btnGotoIndex" class="btn btn-neon3">🏠</button>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Left: Game -->
+        <div class="col-12 col-lg-7">
+            <div class="card glass machine border-0">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="chip"><span class="badge badge-soft">Stage</span> <span id="hudStage" class="mono fw-bold">1</span></span>
+                            <span class="chip"><span class="badge badge-soft">Phase</span> <span id="hudPhase" class="mono fw-bold">-</span></span>
+                            <span class="chip"><span class="badge badge-soft">Words</span> <span id="hudWordCount" class="mono fw-bold">-</span></span>
+                            <span class="chip"><span class="badge badge-soft">Pick</span> <span id="hudPick" class="mono fw-bold">0</span>/<span id="hudNeed" class="mono fw-bold">-</span></span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="timer-ring" id="timerRing" style="--p:0%;">
+                                <div class="mono" id="timerText">-</div>
+                            </div>
+                            <div>
+                                <div class="text-white-50 small">남은 시간</div>
+                                <div class="mono fw-bold"><span id="hudTimeLimit">5</span>s</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="progress mb-3" style="height: 10px; background: rgba(255,255,255,.10);">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div>
+                    </div>
+
+                    <div class="p-3 rounded-4" style="background: rgba(0,0,0,.20); border: 1px solid rgba(255,255,255,.10);">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="text-white-50 small">ORDER</div>
+                            <div class="text-white-50 small">
+                                <span class="mono" id="hintLine">시작을 눌러주세요</span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-2" id="orderChips" aria-label="정답 순서(미리보기/결과에서 표시)"></div>
+
+                        <div class="text-white-50 small mb-2">
+                            <span class="mono">미리보기</span> 동안 순서를 외우고, <span class="mono">선택</span> 단계에서 순서대로 클릭하세요.
+                        </div>
+
+                        <div class="row g-2" id="wordGrid" aria-label="단어 버튼 영역"></div>
+
+                        <div class="mt-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <div class="small text-white-50">
+                                선택 기록: <span class="mono" id="pickedLine">-</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button id="btnClearPick" class="btn btn-outline-light btn-sm" disabled>선택 취소</button>
+                                <button id="btnRevealAnswer" class="btn btn-outline-warning btn-sm" disabled>정답 보기</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-2 form-text text-white-50">
+                        팁: <span class="mono">Esc</span>로 처음부터 리셋
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Rules + Log -->
+        <div class="col-12 col-lg-5">
+            <div class="card glass border-0 mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div class="fw-bold">게임 규칙</div>
+                        <span class="text-white-50 small">미리보기 5초 · 선택 5초</span>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="chip"><span class="badge badge-soft">성공</span> <span id="hudWin" class="mono fw-bold">0</span></span>
+                        <span class="chip"><span class="badge badge-soft">실패</span> <span id="hudLose" class="mono fw-bold">0</span></span>
+                        <span class="chip"><span class="badge badge-soft">타임아웃</span> <span id="hudTimeout" class="mono fw-bold">0</span></span>
+                        <span class="chip"><span class="badge badge-soft">시도</span> <span id="hudAttempt" class="mono fw-bold">0</span></span>
+                    </div>
+
+                    <div class="mt-2 small text-white-50">
+                        <div class="fw-semibold text-white mb-1">단계</div>
+                        <ul class="mb-0">
+                            <li>1단계: 2개</li>
+                            <li>2단계: 4개</li>
+                            <li>3단계: 6개</li>
+                            <li>4단계: 8개</li>
+                            <li>5단계: 10개</li>
+                        </ul>
+                    </div>
+
+                    <hr style="border-color: rgba(255,255,255,.12);" />
+
+                    <div class="small text-white-50">
+                        <div class="fw-semibold text-white mb-1">진행</div>
+                        <ul class="mb-0">
+                            <li>단계 종료 시 정답 순서를 공개합니다.</li>
+                            <li>성공하면 다음 단계로, 실패하면 같은 단계를 반복합니다.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card glass border-0">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div class="fw-bold">문제/정답 로그</div>
+                        <div class="d-flex gap-2">
+                            <button id="btnDownloadCsv" class="btn btn-outline-light btn-sm">CSV</button>
+                            <button id="btnClearLog" class="btn btn-outline-danger btn-sm">비우기</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 360px;">
+                        <table class="table table-sm table-darkish align-middle mb-0">
+                            <thead style="position: sticky; top: 0; background: rgba(10,15,35,.95);">
+                            <tr>
+                                <th class="text-white-50">#</th>
+                                <th class="text-white-50">Stage</th>
+                                <th class="text-white-50">문제</th>
+                                <th class="text-white-50">입력</th>
+                                <th class="text-white-50">정답</th>
+                                <th class="text-white-50">결과</th>
+                                <th class="text-white-50">남은시간</th>
+                            </tr>
+                            </thead>
+                            <tbody id="logBody">
+                            <tr><td colspan="7" class="text-white-50">아직 기록이 없습니다.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="text-white-50 small mt-2">
+                        팁: <span class="mono">로그</span>는 각 시도(성공/실패/타임아웃)마다 추가됩니다.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+        <div id="toast" class="toast align-items-center text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div id="toastBody" class="toast-body">-</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="memory-script.js"></script>
+</body>
+</html>
