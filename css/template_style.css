@@ -548,3 +548,9 @@ body {
     background: rgba(255, 255, 255, 0.1);
     color: var(--text);
 }
+
+.text-bad {
+  color: #ffd54f !important;
+  text-shadow: 0 0 8px rgba(255, 213, 79, 0.8),
+               0 0 16px rgba(255, 213, 79, 0.5);
+}
