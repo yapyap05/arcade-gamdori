@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Sunset Penguin Developer</title>
+  <defs>
+    <clipPath id="circle"><circle cx="32" cy="32" r="31.5"/></clipPath>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#56305e"/><stop offset=".42" stop-color="#f04b4c"/><stop offset=".72" stop-color="#ffad52"/><stop offset="1" stop-color="#f6d17b"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#315c78"/><stop offset="1" stop-color="#142e4b"/></linearGradient>
+    <linearGradient id="coat" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#635a83"/><stop offset="1" stop-color="#302e50"/></linearGradient>
+  </defs>
+  <g clip-path="url(#circle)">
+    <rect width="64" height="64" fill="url(#sky)"/>
+    <path d="M0 16 7 14 11 16 16 13 22 15 27 14 31 17 23 17 18 19 11 18 5 20 0 19Z" fill="#a33f63"/>
+    <path d="M43 13 49 11 54 13 58 10 64 12 64 16 57 15 52 17 46 15Z" fill="#75365e"/>
+    <path d="M0 27 Q10 24 19 27 T38 27 T64 26 V64 H0Z" fill="url(#sea)"/>
+    <path d="M0 31 Q9 29 16 31 T32 31 T48 31 T64 30" fill="none" stroke="#f5a75d" stroke-width="1.2" opacity=".8"/>
+    <path d="M4 38h9m3-4h7m17 5h8m4-5h6M7 46h7m13-5h8m8 8h10M3 54h10m34-5h8" stroke="#70a6b4" stroke-width=".8" stroke-linecap="round" opacity=".8"/>
+    <!-- distant penguins -->
+    <g fill="#242d43" stroke="#141d31" stroke-width=".6"><ellipse cx="6" cy="40" rx="2.6" ry="5"/><ellipse cx="58" cy="39" rx="2.8" ry="5.3"/><ellipse cx="12" cy="44" rx="2.2" ry="4"/><ellipse cx="53" cy="45" rx="2.2" ry="4"/></g>
+    <g fill="#f3e9d7"><ellipse cx="6" cy="41" rx="1.4" ry="2.8"/><ellipse cx="58" cy="40" rx="1.5" ry="3"/><ellipse cx="12" cy="45" rx="1.1" ry="2.2"/><ellipse cx="53" cy="46" rx="1.1" ry="2.2"/></g>
+    <!-- rock -->
+    <path d="M8 56 13 51 19 49 25 45 39 46 47 50 54 56 59 64H4Z" fill="#292b43" stroke="#171c31" stroke-width="1.2"/>
+    <path d="m14 56 7-4 7 1 5-3 8 4 5 5H12Z" fill="#44415a"/>
+    <!-- backpack -->
+    <path d="M19 30 Q14 29 14 34 L14 43 Q15 46 19 44 L23 39Z" fill="#743d67" stroke="#29253f" stroke-width="1.2"/>
+    <path d="M16 33 20 34 20 40 16 41Z" fill="#a34c68"/>
+    <!-- penguin body -->
+    <path d="M25 27 Q20 31 20 39 L22 47 Q25 51 32 50 Q41 51 44 45 L42 33 Q39 26 33 25Z" fill="url(#coat)" stroke="#22243b" stroke-width="1.5"/>
+    <path d="M27 31 Q24 37 26 44 Q31 48 37 45 L39 35 Q37 30 32 30Z" fill="#f5eee0"/>
+    <path d="M22 34 Q18 36 19 41 L23 43 26 39Z" fill="#4d486b" stroke="#24243d" stroke-width="1"/>
+    <path d="M40 35 45 39 43 43 39 40Z" fill="#4d486b" stroke="#24243d" stroke-width="1"/>
+    <!-- head and headphones -->
+    <path d="M22 26 Q21 14 31 13 Q42 13 43 25 L40 31 25 31Z" fill="#242a42" stroke="#111a2d" stroke-width="1.4"/>
+    <path d="M25 25 Q25 17 32 16 Q39 17 40 25 L38 29 Q32 32 27 29Z" fill="#f4f0e4"/>
+    <path d="M28 22 Q30 19 33 21 L32 24 29 24Z" fill="#202b3e"/><circle cx="36" cy="23" r="1" fill="#202b3e"/>
+    <path d="M39 25 44 27 39 29Z" fill="#f4a34b"/>
+    <path d="M21 24 Q21 11 32 11 Q43 11 44 24" fill="none" stroke="#101a30" stroke-width="3.2"/>
+    <path d="M21 23 Q21 12 32 12 Q42 12 43 23" fill="none" stroke="#7c78a6" stroke-width="1.2"/>
+    <rect x="19" y="22" width="5" height="8" rx="2" fill="#b34b80" stroke="#22213a" stroke-width="1"/><rect x="41" y="22" width="4" height="8" rx="2" fill="#b34b80" stroke="#22213a" stroke-width="1"/>
+    <!-- laptop -->
+    <path d="M28 35 42 34 42 42 28 43Z" fill="#22243c" stroke="#10182b" stroke-width="1"/>
+    <path d="M29 36 41 35.5 41 40.5 29 41Z" fill="#456b82"/>
+    <path d="M31 38h7m-7 1.5h4" stroke="#e7b5d2" stroke-width=".7"/>
+    <path d="M27 43 43 42 45 44 29 46Z" fill="#a3a4b9" stroke="#25253e" stroke-width=".8"/>
+    <!-- feet -->
+    <path d="M27 48 25 53 Q28 55 32 53 L32 50Z M37 49 38 53 Q42 54 44 51 L41 47Z" fill="#f18b45" stroke="#7d3d3e" stroke-width=".8"/>
+    <!-- tiny highlights -->
+    <path d="M4 24h7m-4 2h4M49 28h6M7 49h3" stroke="#ffd17b" stroke-width=".8" stroke-linecap="round"/>
+  </g>
+  <circle cx="32" cy="32" r="31.2" fill="none" stroke="#29223e" stroke-width="1.2"/>
+</svg>
