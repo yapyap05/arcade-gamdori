@@ -122,7 +122,7 @@ function finish(cleared = false) {
         <span v-for="(c, i) in chars" :key="i" class="ch" :class="c.cls">{{ c.ch === ' ' ? '\u00A0' : c.ch }}</span>
       </div>
       <form @submit.prevent="submit">
-        <input ref="inputEl" v-model="typed" class="in" :disabled="!active" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="여기에 입력하세요" aria-label="입력" />
+        <input ref="inputEl" v-model="typed" class="in" :disabled="!active" autocomplete="off" autocorrect="off" enterkeyhint="done" @paste.prevent @drop.prevent autocapitalize="off" spellcheck="false" placeholder="여기에 입력하세요" aria-label="입력" />
       </form>
       <p class="msg" role="status">{{ feedback }}</p>
     </div>

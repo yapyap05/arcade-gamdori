@@ -11,6 +11,8 @@ const props = defineProps({ id: String })
 const router = useRouter()
 const auth = useAuthStore()
 
+// 길게 누를 때 뜨는 브라우저 메뉴(복사/공유/키보드 도움말 등) 차단. 입력창은 붙여넣기 메뉴가 필요하니 제외
+const blockMenu = (e) => { if (!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) e.preventDefault() }
 const toggleSound = () => (soundOn.value = !soundOn.value)
 const game = computed(() => getGame(props.id))
 const mode = ref('casual')
@@ -54,7 +56,7 @@ if (!getGame(props.id)) router.replace('/')
     </div>
 
     <div class="layout">
-      <section class="stage card">
+      <section class="stage card game-stage" @contextmenu="blockMenu">
         <component :is="game.component" :key="mode" :mode="mode" @gameover="onGameOver" />
       </section>
 

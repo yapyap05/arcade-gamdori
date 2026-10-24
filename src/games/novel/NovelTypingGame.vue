@@ -108,7 +108,7 @@ onBeforeUnmount(() => clearInterval(clock))
       <div class="target" aria-label="입력할 문장">
         <span v-for="(c, i) in chars" :key="i" class="ch" :class="c.cls">{{ c.ch === ' ' ? '\u00A0' : c.ch }}</span>
       </div>
-      <input ref="inputEl" v-model="typed" class="in" :disabled="status !== 'playing'" autocomplete="off" spellcheck="false" placeholder="문장을 입력하세요" aria-label="입력" />
+      <input ref="inputEl" v-model="typed" class="in" :disabled="status !== 'playing'" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="done" @paste.prevent @drop.prevent spellcheck="false" placeholder="문장을 입력하세요" aria-label="입력" />
       <ul class="logs">
         <li v-for="(l, i) in logs.slice(0, 4)" :key="i"><span class="txt">{{ l.text }}</span><b>{{ l.speed }}타 · {{ l.acc }}%</b></li>
       </ul>

@@ -63,3 +63,26 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ───── 모바일/태블릿 터치 보정 ─────
+   - touch-action: manipulation  → 빠르게 두 번 탭해도 화면이 확대되지 않음 (핀치 줌은 유지)
+   - user-select / -webkit-touch-callout → 길게 눌러도 선택·복사·공유 팝업이 뜨지 않음 */
+a, button, select, label, [role='button'], [role='tab'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button, .btn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.game-stage, .tile {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.game-stage img, .tile img { -webkit-user-drag: none; user-drag: none; }
+/* 타자 게임 입력창만 선택/입력 허용 */
+.game-stage input, .game-stage textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}

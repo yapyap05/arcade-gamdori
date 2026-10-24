@@ -3,7 +3,7 @@ defineProps({ game: { type: Object, required: true } })
 </script>
 
 <template>
-  <RouterLink :to="`/game/${game.id}`" class="tile" :style="{ '--a': game.colors[0], '--b': game.colors[1] }">
+  <RouterLink :to="`/game/${game.id}`" class="tile" draggable="false" @contextmenu.prevent :style="{ '--a': game.colors[0], '--b': game.colors[1] }">
     <div class="art"><span class="emoji" aria-hidden="true">{{ game.emoji }}</span></div>
     <div class="meta">
       <div class="row">
