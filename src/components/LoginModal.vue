@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
+const logo = `${import.meta.env.BASE_URL}logo.png`
 const email = ref('')
 const nickname = ref('')
 const code = ref('')
@@ -50,7 +51,8 @@ async function verify() {
 <template>
   <Teleport to="body">
     <div v-if="auth.modalOpen" class="backdrop" @click.self="auth.closeLogin()" @keydown.esc="auth.closeLogin()">
-      <div class="card modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+        <img :src="logo" alt="겜돌이 월드" width="64" height="64" class="logo" />
         <h2 id="login-title">닉네임으로 바로 시작하기</h2>
         <p class="muted desc">
           비밀번호 없이 이메일과 닉네임만 있으면 랭킹에 도전할 수 있어요.
@@ -61,7 +63,7 @@ async function verify() {
           <label>이메일<input v-model="email" type="email" autocomplete="email" placeholder="you@example.com" autofocus /></label>
           <label>닉네임<input v-model="nickname" maxlength="12" autocomplete="nickname" placeholder="랭킹에 표시될 이름 (처음 가입할 때만 저장)" /></label>
           <p v-if="error" class="err" role="alert">{{ error }}</p>
-          <button class="btn btn-cta submit" :disabled="loading">{{ loading ? '처리 중…' : '시작하기' }}</button>
+          <button class="btn btn-primary submit" :disabled="loading">{{ loading ? '처리 중…' : '시작하기' }}</button>
         </form>
 
         <div v-else-if="step === 'sent'" class="sent">
@@ -73,7 +75,7 @@ async function verify() {
           <p class="ok" role="status">{{ info }}<br />메일의 <b>링크를 누르거나</b>, 아래에 <b>숫자 코드</b>를 입력하세요.</p>
           <label>인증 코드<input v-model="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" autofocus /></label>
           <p v-if="error" class="err" role="alert">{{ error }}</p>
-          <button class="btn btn-cta submit" :disabled="loading">{{ loading ? '확인 중…' : '코드 확인' }}</button>
+          <button class="btn btn-primary submit" :disabled="loading">{{ loading ? '확인 중…' : '코드 확인' }}</button>
           <button type="button" class="btn btn-sm back" @click="step = 'form'">← 이메일 다시 입력</button>
         </form>
 
@@ -84,17 +86,22 @@ async function verify() {
 </template>
 
 <style scoped>
-.backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(10, 12, 30, 0.55); display: grid; place-items: center; padding: 20px; }
-.modal { width: min(420px, 100%); padding: 28px; display: grid; gap: 12px; }
-h2 { margin: 0; font-size: 22px; }
+.backdrop { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: grid; place-items: center; padding: 20px; }
+.logo { width: 64px; height: 64px; border-radius: 50%; border: var(--bw) solid var(--bc); justify-self: center; }
+.modal {
+  width: min(400px, 100%); padding: 24px; display: grid; gap: 12px;
+  background: var(--surface); color: var(--text);
+  border-radius: var(--r-lg); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
+}
+h2 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight); font-size: 22px; }
 .desc { margin: 0; font-size: 14px; }
 form, .sent { display: grid; gap: 14px; }
 label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; }
-input { padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); }
+input { height: 48px; padding: 0 14px; border-radius: var(--r-btn2); border: var(--bw) solid var(--bc); background: var(--bg); font-size: 16px; }
 input:focus { border-color: var(--accent); outline: none; }
 .err { color: var(--danger); margin: 0; font-size: 14px; }
-.ok { margin: 0; padding: 14px; border-radius: 12px; background: var(--surface-2); font-size: 14px; }
-.submit { padding: 12px; font-size: 16px; }
+.ok { margin: 0; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); font-size: 14px; }
+.submit { height: 52px; font-size: 16px; }
 .back { justify-self: start; }
 .close { justify-self: end; }
 </style>

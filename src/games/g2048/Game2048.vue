@@ -1,32 +1,32 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
-import GameHeader from '../shared/GameHeader.vue'
-import { useLater, pick } from '../shared/kit'
+import { useLater, useKeys, useSwipe, arrowDir, pick } from '../shared/kit'
 import { sfx } from '../shared/sfx'
+import { useRecordsStore } from '../../stores/records'
 
-defineProps({ mode: { type: String, default: 'casual' } })
+const props = defineProps({ mode: { type: String, default: 'casual' } })
 const emit = defineEmits(['gameover'])
 
 const N = 4
 const WIN = 2048
-const BEST_KEY = 'gamdori-2048-best' // 기존 저장 키 유지
 
+const records = useRecordsStore()
 const status = ref('idle')
 const tiles = ref([]) // { id, val, r, c, isNew, merged, dead }
 const score = ref(0)
-const best = ref(Number(localStorage.getItem(BEST_KEY)) || 0)
 const moves = ref(0)
 const won = ref(false)
 const keepPlaying = ref(false)
 let nextId = 1
 const { later } = useLater()
 
+const best = computed(() => Math.max(score.value, records.best['2048']?.[props.mode]?.score ?? 0))
 const live = computed(() => tiles.value.filter((t) => !t.dead))
 const maxTile = computed(() => Math.max(0, ...live.value.map((t) => t.val)))
 const stats = computed(() => [
-  { label: '점수', value: score.value },
-  { label: '최고', value: best.value },
+  { label: '점수', value: score.value.toLocaleString() },
+  { label: '최고', value: best.value.toLocaleString() },
 ])
 
 function addRandom() {
@@ -78,14 +78,11 @@ function move(dir) {
   later(() => { tiles.value = tiles.value.filter((t) => !t.dead) }, 140)
   score.value += gained
   moves.value++
-  if (score.value > best.value) {
-    best.value = score.value
-    try { localStorage.setItem(BEST_KEY, best.value) } catch {}
-  }
   if (gained) sfx.tick()
   addRandom()
-  if (!won.value && live.value.some((t) => t.val >= WIN)) { won.value = true; sfx.levelUp(); return }
-  if (!canMove()) finish()
+  // 판이 막혔으면 2048 달성 여부와 상관없이 종료 (달성 직후 막혀 멈추던 문제 수정)
+  if (!canMove()) return finish()
+  if (!won.value && live.value.some((t) => t.val >= WIN)) { won.value = true; sfx.levelUp() }
 }
 
 function canMove() {
@@ -107,55 +104,32 @@ function finish() {
   emit('gameover', { score: score.value, meta: { maxTile: maxTile.value, moves: moves.value } })
 }
 
-const KEYMAP = { ArrowUp: 'U', w: 'U', ArrowDown: 'D', s: 'D', ArrowLeft: 'L', a: 'L', ArrowRight: 'R', d: 'R' }
-function onKey(e) {
-  const dir = KEYMAP[e.key]
+useKeys((e) => {
+  const dir = arrowDir(e.code)
   if (!dir || status.value !== 'playing') return
   e.preventDefault()
   move(dir)
-}
+})
+const swipe = useSwipe(move)
 
-let sx = 0, sy = 0
-const onDown = (e) => { sx = e.clientX; sy = e.clientY }
-function onUp(e) {
-  const dx = e.clientX - sx, dy = e.clientY - sy
-  if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return
-  if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'R' : 'L')
-  else move(dy > 0 ? 'D' : 'U')
-}
-
-onMounted(() => window.addEventListener('keydown', onKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
-
-function tileStyle(t) {
-  const lg = Math.log2(t.val)
-  const small = t.val <= 4
-  return {
-    '--bg': small ? 'var(--surface-2)' : `hsl(${(lg - 3) * 28 + 210} 72% ${lg > 10 ? 45 : 56}%)`,
-    '--fg': small ? 'var(--text)' : '#fff',
-    '--fs': t.val >= 1024 ? '26px' : t.val >= 128 ? '30px' : '36px',
-  }
-}
+const tileClass = (t) => [`v${t.val <= WIN ? t.val : 'max'}`, { pop: t.isNew, merge: t.merged, sm: t.val >= 128, xs: t.val >= 1024 }]
 </script>
 
 <template>
-  <GameScreen :status="status" :mode="mode" :score="score" title="2048" desc="방향키(또는 스와이프)로 같은 숫자를 합쳐 2048을 만들어 보세요. 더 못 움직이면 끝!"
-    :summary="`최대 타일 ${maxTile} · ${moves}회 이동`" @start="start">
-    <div class="wrap">
-      <GameHeader :stats="stats" @quit="finish" />
-      <div class="board" @pointerdown="onDown" @pointerup="onUp">
-        <div class="bg"><i v-for="n in N * N" :key="n" /></div>
-        <div class="layer">
-          <div v-for="t in tiles" :key="t.id" class="slot" :style="{ left: t.c * 25 + '%', top: t.r * 25 + '%' }">
-            <div class="tile" :class="{ pop: t.isNew, merge: t.merged }" :style="tileStyle(t)">{{ t.val }}</div>
-          </div>
+  <GameScreen :status="status" :mode="mode" :score="score" :stats="stats" title="2048"
+    :summary="`최대 타일 ${maxTile} · ${moves}회 이동`" @start="start" @quit="finish">
+    <div class="board" v-on="swipe">
+      <div class="bg"><i v-for="n in N * N" :key="n" /></div>
+      <div class="layer">
+        <div v-for="t in tiles" :key="t.id" class="slot" :style="{ left: t.c * 25 + '%', top: t.r * 25 + '%' }">
+          <div class="tile num" :class="tileClass(t)">{{ t.val }}</div>
         </div>
-        <div v-if="won && !keepPlaying && status === 'playing'" class="win">
-          <b>2048 달성! 🎉</b>
-          <div>
-            <button class="btn btn-cta btn-sm" @click="keepPlaying = true">계속하기</button>
-            <button class="btn btn-sm" @click="finish">여기서 종료</button>
-          </div>
+      </div>
+      <div v-if="won && !keepPlaying && status === 'playing'" class="win">
+        <b>2048 달성!</b>
+        <div>
+          <button class="btn btn-primary btn-sm" @click="keepPlaying = true">계속하기</button>
+          <button class="btn btn-sm" @click="finish">여기서 종료</button>
         </div>
       </div>
     </div>
@@ -163,18 +137,36 @@ function tileStyle(t) {
 </template>
 
 <style scoped>
-.wrap { display: grid; gap: 4px; }
-.board { position: relative; width: min(100%, 460px); aspect-ratio: 1; margin: 0 auto; background: var(--board-grid); border-radius: 16px; padding: 10px; touch-action: none; user-select: none; }
+.board {
+  position: relative; width: min(100%, 420px); aspect-ratio: 1; margin: 0 auto; padding: 6px;
+  border-radius: var(--r-md); background: var(--board-grid); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
+  touch-action: none; user-select: none;
+}
 .bg, .layer, .slot { position: absolute; }
-.layer { inset: 10px; }
-.bg { inset: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
-.bg i { margin: 5px; border-radius: 10px; background: var(--board-bg); }
+.layer, .bg { inset: 6px; }
+.bg { display: grid; grid-template-columns: repeat(4, 1fr); }
+.bg i { margin: 4px; border-radius: 10px; background: var(--board-bg); }
 .slot { width: 25%; height: 25%; transition: left 0.12s ease, top 0.12s ease; }
-.tile { position: absolute; inset: 5px; display: grid; place-items: center; border-radius: 10px; background: var(--bg); color: var(--fg); font-size: var(--fs); font-weight: 800; }
+.tile {
+  position: absolute; inset: 4px; display: grid; place-items: center; border-radius: 10px;
+  font-size: 30px; border: var(--bw) solid var(--bc);
+}
+.tile.sm { font-size: 24px; }
+.tile.xs { font-size: 19px; }
+.v2 { background: var(--t2); color: var(--t2i); } .v4 { background: var(--t4); color: var(--t4i); }
+.v8 { background: var(--t8); color: var(--t8i); } .v16 { background: var(--t16); color: var(--t16i); }
+.v32 { background: var(--t32); color: var(--t32i); } .v64 { background: var(--t64); color: var(--t64i); }
+.v128 { background: var(--t128); color: var(--t128i); } .v256 { background: var(--t256); color: var(--t256i); }
+.v512 { background: var(--t512); color: var(--t512i); } .v1024 { background: var(--t1024); color: var(--t1024i); }
+.v2048, .vmax { background: var(--t2048); color: var(--t2048i); }
 .tile.pop { animation: pop 0.18s ease; }
 .tile.merge { animation: merge 0.18s ease; }
 @keyframes pop { from { transform: scale(0.3); } to { transform: scale(1); } }
-@keyframes merge { 50% { transform: scale(1.18); } }
-.win { position: absolute; inset: 0; border-radius: 16px; background: rgba(12, 14, 34, 0.8); color: #fff; display: grid; place-content: center; justify-items: center; gap: 12px; font-size: 24px; }
+@keyframes merge { 50% { transform: scale(1.15); } }
+.win {
+  position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--scrim); color: #fff;
+  display: grid; place-content: center; justify-items: center; gap: 12px;
+  font-family: var(--font-display); font-weight: var(--display-weight); font-size: 26px;
+}
 .win div { display: flex; gap: 8px; }
 </style>

@@ -2,17 +2,29 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Gamdori Arcade</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F6F5F2" />
+    <title>겜돌이 월드 · Gamdori World</title>
+    <meta name="application-name" content="겜돌이 월드" />
+    <meta name="apple-mobile-web-app-title" content="겜돌이 월드" />
+    <link rel="icon" type="image/png" href="logo.png" />
+    <link rel="apple-touch-icon" href="logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" />
     <script>
-      // 첫 페인트 전에 테마 적용 (깜빡임 방지)
+      // 첫 페인트 전에 테마 적용 (깜빡임 방지) — 로직은 src/stores/theme.js 와 동일하게 유지
       try {
-        var t = localStorage.getItem('gamdori:theme') ||
-          (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        document.documentElement.dataset.theme = t;
-      } catch (e) {}
+        var saved = localStorage.getItem('gamdori:theme')
+        var choice = ['candy', 'minimal', 'minimal-dark'].indexOf(saved) >= 0 ? saved : 'minimal'
+        var follow = localStorage.getItem('gamdori:follow-system') !== 'off'
+        var t = choice !== 'candy' && follow
+          ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'minimal-dark' : 'minimal')
+          : choice
+        document.documentElement.dataset.theme = t
+      } catch (e) {
+        document.documentElement.dataset.theme = 'minimal'
+      }
     </script>
   </head>
   <body>

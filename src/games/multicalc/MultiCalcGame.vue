@@ -1,9 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
-import GameHeader from '../shared/GameHeader.vue'
-import TimerBar from '../shared/TimerBar.vue'
-import { useTimer, useLater, randInt, shuffle } from '../shared/kit'
+import { useTimer, useLater, useKeys, randInt, shuffle, hearts } from '../shared/kit'
+import { useGameCtx } from '../shared/context'
 import { sfx } from '../shared/sfx'
 
 const props = defineProps({ mode: { type: String, default: 'casual' } })
@@ -30,25 +29,33 @@ const score = ref(0)
 const correct = ref(0)
 const wrong = ref(0)
 const timeouts = ref(0)
+const lives = ref(3)
 const problem = ref(null)
 const reelA = ref('-')
 const reelB = ref('-')
 const phase = ref('idle') // spinning | waiting | answering | feedback
 const choices = ref([])
 const picked = ref(null)
-const msg = ref('')
+const toast = ref('')
 
+const ctx = useGameCtx()
 const timer = useTimer()
 const { later, clearAll } = useLater()
 let spinId = 0
+onBeforeUnmount(() => clearInterval(spinId))
 
 const info = computed(() => STAGES[stageIdx.value])
 const stats = computed(() => [
-  { label: 'Stage', value: `${stageIdx.value + 1} ${info.value.name}` },
+  { label: '단계', value: `${stageIdx.value + 1} ${info.value.name}` },
   { label: '점수', value: score.value },
-  { label: '연속', value: streak.value },
-  { label: '남은 정답', value: Math.max(0, info.value.need - got.value) },
+  { label: '라이프', value: hearts(lives.value) },
+  { label: '남은 문제', value: Math.max(0, info.value.need - got.value) },
 ])
+const timerView = computed(() => ({
+  pct: timer.pct.value,
+  text: timer.text.value,
+  label: phase.value === 'waiting' ? '대기' : phase.value === 'answering' ? '입력' : '준비',
+}))
 
 const pickDigits = () => {
   let r = Math.random(), acc = 0
@@ -93,7 +100,7 @@ function makeProblem(op) {
 
 function start() {
   stageIdx.value = props.mode === 'casual' ? startStage.value : 0
-  got.value = 0; streak.value = 0; score.value = 0; correct.value = 0; wrong.value = 0; timeouts.value = 0
+  got.value = 0; streak.value = 0; score.value = 0; correct.value = 0; wrong.value = 0; timeouts.value = 0; lives.value = 3
   status.value = 'playing'
   nextQuestion()
 }
@@ -104,9 +111,10 @@ function nextQuestion() {
   problem.value = makeProblem(info.value.op)
   choices.value = []
   picked.value = null
-  msg.value = ''
+  toast.value = ''
   phase.value = 'spinning'
   spinId = setInterval(() => {
+    if (ctx.paused) return
     reelA.value = String(randInt(0, 99))
     reelB.value = String(randInt(0, 99))
     sfx.tick()
@@ -134,26 +142,29 @@ function choose(n) {
     correct.value++; streak.value++; got.value++
     const gain = 10 + Math.floor(Math.min(10, remain)) + Math.min(10, streak.value)
     score.value += gain
-    msg.value = `정답! +${gain}`
+    toast.value = `정답 +${gain}`
     sfx.correct()
     later(afterCorrect, 400)
   } else {
-    wrong.value++; streak.value = 0
+    wrong.value++; streak.value = 0; lives.value--
     score.value = Math.max(0, score.value - 2)
-    msg.value = `오답! 정답: ${problem.value.answer}`
+    toast.value = `정답은 ${problem.value.answer}`
     sfx.wrong()
-    later(nextQuestion, 900)
+    later(afterMiss, 900)
   }
 }
 
 function onTimeout() {
   phase.value = 'feedback'
-  timeouts.value++; streak.value = 0
+  timeouts.value++; streak.value = 0; lives.value--
   score.value = Math.max(0, score.value - 1)
-  msg.value = `타임아웃! 정답: ${problem.value.answer}`
+  toast.value = `시간 초과 · 정답은 ${problem.value.answer}`
   sfx.wrong()
-  later(nextQuestion, 900)
+  later(afterMiss, 900)
 }
+
+// 오답·시간 초과: 라이프가 남아 있으면 다음 문제, 없으면 종료
+const afterMiss = () => (lives.value <= 0 ? finish() : nextQuestion())
 
 function afterCorrect() {
   if (got.value >= info.value.need) {
@@ -167,13 +178,11 @@ function afterCorrect() {
   nextQuestion()
 }
 
-function onKey(e) {
+useKeys((e) => {
   if (status.value !== 'playing' || phase.value !== 'answering') return
-  const i = Number(e.key)
-  if (i >= 1 && i <= choices.value.length) choose(choices.value[i - 1])
-}
-onMounted(() => window.addEventListener('keydown', onKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+  const m = /^(Digit|Numpad)([1-8])$/.exec(e.code)
+  if (m && Number(m[2]) <= choices.value.length) choose(choices.value[Number(m[2]) - 1])
+})
 
 function finish(jackpot = false) {
   clearAll(); timer.stop(); clearInterval(spinId)
@@ -184,46 +193,43 @@ function finish(jackpot = false) {
 </script>
 
 <template>
-  <GameScreen v-model:stage="startStage" :status="status" :mode="mode" :score="score" :stages="STAGES.map((s, i) => `${i + 1}단계: ${s.name}`)"
-    title="계산x계산해" desc="릴이 멈추면 문제를 확인하고, 대기가 끝나면 보기 8개 중 정답을 고르세요. (숫자키 1~8도 가능) 4단계를 모두 클리어하면 잭팟!"
-    :summary="`정답 ${correct} / 오답 ${wrong} / 타임아웃 ${timeouts}`" @start="start">
-    <div class="wrap">
-      <GameHeader :stats="stats" @quit="finish()" />
-      <TimerBar :pct="timer.pct.value" :text="timer.text.value" :label="phase === 'waiting' ? '대기' : phase === 'answering' ? '입력' : '준비'" />
-      <div class="slot" :class="phase">
-        <div class="reel">{{ reelA }}</div>
-        <div class="op">{{ problem ? info.op : '?' }}</div>
-        <div class="reel">{{ reelB }}</div>
-      </div>
-      <p class="line">{{ phase === 'spinning' ? 'SPIN...' : problem && phase !== 'idle' ? `${problem.a} ${problem.op} ${problem.b} = ?` : '' }}</p>
-      <div class="choices" role="group" aria-label="보기">
-        <button v-for="(c, i) in choices" :key="c" class="choice"
-          :class="{ right: phase === 'feedback' && c === problem.answer, wrong: phase === 'feedback' && c === picked && c !== problem.answer }"
-          :disabled="phase !== 'answering'" @click="choose(c)">
-          <small>{{ i + 1 }}</small>{{ c }}
-        </button>
-        <p v-if="!choices.length" class="ph">문제를 준비하고 있어요…</p>
-      </div>
-      <p class="msg" role="status">{{ msg }}</p>
+  <GameScreen v-model:stage="startStage" :status="status" :mode="mode" :score="score" :stats="stats" :timer="timerView" :toast="toast"
+    :stages="STAGES.map((s, i) => `${i + 1}단계: ${s.name}`)" title="계산x계산해"
+    :summary="`정답 ${correct} · 오답 ${wrong} · 시간 초과 ${timeouts}`" @start="start" @quit="finish()">
+    <div class="slot" :class="phase">
+      <div class="reel num">{{ reelA }}</div>
+      <div class="op">{{ problem ? info.op : '?' }}</div>
+      <div class="reel num">{{ reelB }}</div>
     </div>
+    <template #controls>
+      <div class="choices" role="group" aria-label="보기">
+        <button v-for="c in choices" :key="c" class="choice num"
+          :class="{ right: phase === 'feedback' && c === problem.answer, wrong: phase === 'feedback' && c === picked && c !== problem.answer }"
+          :disabled="phase !== 'answering'" @click="choose(c)">{{ c }}</button>
+        <span v-for="n in 8 - choices.length" :key="'e' + n" class="choice empty" aria-hidden="true"></span>
+      </div>
+    </template>
   </GameScreen>
 </template>
 
 <style scoped>
-.wrap { display: grid; gap: 14px; }
-.slot { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 22px; border-radius: 18px; background: var(--board-bg); }
-.reel { min-width: 120px; padding: 14px 18px; text-align: center; font-size: 52px; font-weight: 900; font-variant-numeric: tabular-nums; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.slot {
+  display: flex; align-items: center; justify-content: center; gap: 12px; padding: 20px 12px;
+  border-radius: var(--r-md); background: var(--board-bg); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
+}
+.reel {
+  min-width: 96px; padding: 12px 14px; text-align: center; font-size: 44px; line-height: 1.1;
+  border-radius: var(--r-btn2); background: var(--surface); border: var(--bw) solid var(--bc); box-shadow: var(--sh-sm);
+}
 .slot.spinning .reel { filter: blur(1.5px); color: var(--muted); }
-.op { font-size: 40px; font-weight: 900; color: var(--accent); }
-.line { margin: 0; text-align: center; font-size: 22px; font-weight: 800; min-height: 32px; }
-.choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; min-height: 130px; }
-.choice { position: relative; padding: 22px 0 18px; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); }
-.choice small { position: absolute; top: 5px; left: 9px; font-size: 11px; color: var(--muted); }
-.choice:hover:not(:disabled) { border-color: var(--accent); }
+.op { font-family: var(--font-num); font-size: 36px; font-weight: 700; color: var(--accent); }
+.choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.choice {
+  height: 56px; font-size: 22px; border-radius: var(--r-btn2);
+  border: var(--bw) solid var(--bc); background: var(--surface); color: var(--text); box-shadow: var(--sh-sm);
+}
 .choice:disabled { opacity: 0.55; }
-.choice.right { opacity: 1; background: #2fd46b; border-color: #2fd46b; color: #06240f; }
+.choice.empty { background: var(--surface-2); box-shadow: none; opacity: 0.5; }
+.choice.right { opacity: 1; background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .choice.wrong { opacity: 1; background: var(--danger); border-color: var(--danger); color: #fff; }
-.ph { grid-column: 1 / -1; margin: 0; align-self: center; text-align: center; color: var(--muted); }
-.msg { margin: 0; text-align: center; font-weight: 800; min-height: 24px; }
-@media (max-width: 520px) { .reel { min-width: 84px; font-size: 38px; } .choice { font-size: 20px; } }
 </style>

@@ -1,8 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
-import GameHeader from '../shared/GameHeader.vue'
-import TimerBar from '../shared/TimerBar.vue'
 import { useTimer, useLater, hearts } from '../shared/kit'
 import { sfx } from '../shared/sfx'
 import { generateLevel, createState, startPath, stepInto, isComplete, isSolved, ownerMap, rowCol } from './flowLogic'
@@ -33,14 +31,13 @@ const { later, clearAll } = useLater()
 
 const owner = computed(() => (st.value ? ownerMap(st.value) : []))
 const filled = computed(() => owner.value.filter((o) => o >= 0).length)
-const linked = computed(() => (st.value ? level.pairs.filter((p) => isComplete(st.value, p.k)).length : 0))
 const stats = computed(() => [
   { label: '크기', value: `${size.value}x${size.value}` },
   { label: '점수', value: score.value },
   { label: '라이프', value: hearts(lives.value) },
-  { label: '연결', value: `${linked.value}/${size.value}` },
   { label: '채움', value: `${filled.value}/${size.value * size.value}` },
 ])
+const timerView = computed(() => ({ pct: timer.pct.value, text: timer.text.value, label: '시간' }))
 
 const pts = (p) => p.map((i) => { const [r, c] = rowCol(size.value, i); return `${(c + 0.5) * 100},${(r + 0.5) * 100}` }).join(' ')
 const center = (i) => { const [r, c] = rowCol(size.value, i); return { x: (c + 0.5) * 100, y: (r + 0.5) * 100 } }
@@ -138,41 +135,36 @@ function finish() {
 </script>
 
 <template>
-  <GameScreen v-model:stage="startStage" :status="status" :mode="mode" :score="score"
+  <GameScreen v-model:stage="startStage" :status="status" :mode="mode" :score="score" :stats="stats" :timer="timerView" :toast="toast"
     :stages="SIZES.map((s) => `${s}x${s}부터`)" title="이어줘! 색줄이"
-    desc="같은 색 점끼리 선으로 이어 보세요. 선은 서로 겹칠 수 없고, 모든 칸을 채워야 완성! 시간 안에 못 풀면 라이프가 줄어요."
-    :summary="`${size}x${size} · ${cleared}판 완성`" @start="start">
-    <div class="wrap">
-      <GameHeader :stats="stats" @quit="finish" />
-      <TimerBar :pct="timer.pct.value" :text="timer.text.value" label="남은 시간" />
-      <div class="boardwrap">
-        <svg v-if="st" ref="svg" class="board" :viewBox="`0 0 ${size * 100} ${size * 100}`"
-          @pointerdown.prevent="down" @pointermove.prevent="move" @pointerup="up" @pointercancel="up">
-          <rect :width="size * 100" :height="size * 100" rx="18" class="bg" />
-          <rect v-for="(o, i) in owner" v-show="o >= 0" :key="'f' + i" :x="(i % size) * 100" :y="Math.floor(i / size) * 100" width="100" height="100" :fill="PALETTE[o]" fill-opacity="0.22" />
-          <g class="grid">
-            <line v-for="i in size - 1" :key="'v' + i" :x1="i * 100" y1="0" :x2="i * 100" :y2="size * 100" />
-            <line v-for="i in size - 1" :key="'h' + i" x1="0" :y1="i * 100" :x2="size * 100" :y2="i * 100" />
-          </g>
-          <polyline v-for="(p, k) in st.paths" :key="'p' + k" :points="pts(p)" :stroke="PALETTE[k]" class="line" />
-          <circle v-for="d in dots" :key="'d' + d.i" :cx="d.x" :cy="d.y" r="30" :fill="PALETTE[d.k]" class="dot" />
-        </svg>
-        <p class="toast" role="status">{{ toast }}</p>
-      </div>
-      <button class="btn btn-sm reset" :disabled="locked" @click="resetBoard">선 지우기</button>
-    </div>
+    :summary="`${size}x${size} · ${cleared}판 완성`" @start="start" @quit="finish">
+    <svg v-if="st" ref="svg" class="board" :viewBox="`0 0 ${size * 100} ${size * 100}`"
+      @pointerdown.prevent="down" @pointermove.prevent="move" @pointerup="up" @pointercancel="up">
+      <rect :width="size * 100" :height="size * 100" rx="18" class="bg" />
+      <rect v-for="(o, i) in owner" v-show="o >= 0" :key="'f' + i" :x="(i % size) * 100" :y="Math.floor(i / size) * 100" width="100" height="100" :fill="PALETTE[o]" fill-opacity="0.22" />
+      <g class="grid">
+        <line v-for="i in size - 1" :key="'v' + i" :x1="i * 100" y1="0" :x2="i * 100" :y2="size * 100" />
+        <line v-for="i in size - 1" :key="'h' + i" x1="0" :y1="i * 100" :x2="size * 100" :y2="i * 100" />
+      </g>
+      <polyline v-for="(p, k) in st.paths" :key="'p' + k" :points="pts(p)" :stroke="PALETTE[k]" class="line" />
+      <circle v-for="d in dots" :key="'d' + d.i" :cx="d.x" :cy="d.y" r="30" :fill="PALETTE[d.k]" class="dot" />
+    </svg>
+    <div v-else class="board placeholder" />
+    <template #controls>
+      <button class="btn" :disabled="locked" @click="resetBoard">선 지우기</button>
+    </template>
   </GameScreen>
 </template>
 
 <style scoped>
-.wrap { display: grid; gap: 10px; justify-items: center; }
-.wrap > :nth-child(-n + 2) { width: 100%; }
-.boardwrap { position: relative; width: min(100%, 460px); }
-.board { display: block; width: 100%; height: auto; touch-action: none; border-radius: 18px; }
+.board {
+  display: block; width: min(100%, 420px); height: auto; aspect-ratio: 1; margin: 0 auto; touch-action: none;
+  border-radius: var(--r-md); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
+}
+.placeholder { background: var(--board-bg); }
 .bg { fill: var(--board-bg); }
 .grid line { stroke: var(--board-grid); stroke-width: 3; }
 .line { fill: none; stroke-width: 36; stroke-linecap: round; stroke-linejoin: round; opacity: 0.95; pointer-events: none; }
 .dot { pointer-events: none; }
-.toast { position: absolute; inset: auto 0 8px; margin: 0; text-align: center; font-weight: 900; color: var(--text); text-shadow: 0 0 8px var(--bg); pointer-events: none; }
-.reset { justify-self: end; }
+.btn { height: 48px; }
 </style>

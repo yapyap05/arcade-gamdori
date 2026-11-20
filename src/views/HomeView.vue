@@ -1,62 +1,83 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { games, CATEGORIES } from '../games/registry'
+import { games, CATEGORIES, categoryLabel } from '../games/registry'
+import { useRecordsStore } from '../stores/records'
+import { soundOn } from '../games/shared/sfx'
+import { pickDaily } from '../utils/daily'
 import GameTile from '../components/GameTile.vue'
+import PixelIcon from '../components/PixelIcon.vue'
+import Icon from '../components/Icon.vue'
 
+const records = useRecordsStore()
 const category = ref('all')
-const query = ref('')
+const filtered = computed(() => games.filter((g) => category.value === 'all' || g.category === category.value))
 
-const filtered = computed(() =>
-  games.filter(
-    (g) =>
-      (category.value === 'all' || g.category === category.value) &&
-      (g.title + g.desc).toLowerCase().includes(query.value.trim().toLowerCase()),
-  ),
-)
+const logo = `${import.meta.env.BASE_URL}logo.png`
+const pick = pickDaily(games)
+const toggleSound = () => (soundOn.value = !soundOn.value)
 </script>
 
 <template>
-  <section class="top">
-    <div class="chips" role="tablist">
+  <div class="screen">
+    <header class="screen-head">
+      <div class="logo-row">
+        <img :src="logo" alt="" class="logo" width="44" height="44" />
+        <div class="col">
+          <span class="en">Gamdori World</span>
+          <h1 class="brand">겜돌이 월드</h1>
+        </div>
+      </div>
+      <button class="icon-btn" :aria-pressed="soundOn" :aria-label="soundOn ? '효과음 끄기' : '효과음 켜기'" @click="toggleSound">
+        <Icon :name="soundOn ? 'sound' : 'mute'" />
+      </button>
+    </header>
+
+    <RouterLink v-if="pick" :to="`/game/${pick.id}`" class="hero" :aria-label="`오늘의 추천 ${pick.title} 바로 플레이`">
+      <span class="kicker">오늘의 추천</span>
+      <span class="hero-row">
+        <span class="badge"><PixelIcon :name="pick.id" :size="40" /></span>
+        <span class="col grow">
+          <span class="hero-title">{{ pick.title }}</span>
+          <span class="hero-sub">{{ categoryLabel(pick.category) }} · {{ pick.desc }}</span>
+        </span>
+        <span class="go" aria-hidden="true"><Icon name="arrow" /></span>
+      </span>
+    </RouterLink>
+
+    <div class="chips" role="tablist" aria-label="카테고리">
       <button v-for="c in CATEGORIES" :key="c.id" class="chip" :class="{ on: category === c.id }" role="tab" :aria-selected="category === c.id" @click="category = c.id">
         {{ c.label }}
       </button>
     </div>
-    <input v-model="query" class="search" type="search" placeholder="게임 검색" aria-label="게임 검색" />
-  </section>
 
-  <section v-if="filtered.length" class="grid">
-    <GameTile v-for="g in filtered" :key="g.id" :game="g" />
-  </section>
-  <p v-else class="muted empty">조건에 맞는 게임이 없어요. 다른 카테고리를 선택해 보세요.</p>
+    <section class="grid" aria-label="게임 목록">
+      <GameTile v-for="g in filtered" :key="g.id" :game="g" :index="games.indexOf(g)" :best="records.bestOf(g.id)" />
+    </section>
+  </div>
 </template>
 
 <style scoped>
-.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.chip { border: 0; padding: 8px 16px; border-radius: 999px; font-weight: 700; background: var(--surface); box-shadow: var(--shadow); }
-.chip.on { background: var(--accent); color: var(--accent-text); }
-.search { padding: 10px 16px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); min-width: 220px; }
-.search:focus { border-color: var(--accent); outline: none; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-.empty { text-align: center; padding: 60px 0; }
-
-/* 모바일: 한 줄에 카드 2개 (태블릿 이상은 기존 자동 배치) */
-@media (max-width: 599px) {
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .search { width: 100%; min-width: 0; }
-  .chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 4px; scrollbar-width: none; }
-  .chips::-webkit-scrollbar { display: none; }
-  .chip { flex: none; }
+.logo-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.logo { width: 44px; height: 44px; border-radius: 50%; flex: none; border: var(--bw) solid var(--bc); }
+.col { display: flex; flex-direction: column; min-width: 0; }
+.en { font-family: var(--font-num); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); }
+.hero {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px 18px;
+  border-radius: var(--r-lg); background: var(--hero-bg); color: var(--hero-ink);
+  border: var(--bw) solid var(--hero-bc); box-shadow: var(--sh);
 }
-@media (max-width: 700px) {
-  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .search { min-width: 0; width: 100%; }
-  .top { gap: 10px; }
-  .chips { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; }
-  .chip { flex: none; }
+.kicker { font-family: var(--font-num); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--hero-kicker); }
+.hero-row { display: flex; align-items: center; gap: 12px; }
+.badge {
+  width: 52px; height: 52px; flex: none; display: grid; place-items: center;
+  border-radius: 14px; background: var(--px-bg); border: var(--bw) solid var(--px-bc);
 }
-@media (max-width: 520px) {
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hero-title { font-family: var(--font-display); font-weight: var(--display-weight); font-size: 20px; line-height: 1.25; }
+.hero-sub { font-size: 13px; color: var(--hero-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go {
+  width: 44px; height: 44px; flex: none; border-radius: 999px;
+  display: grid; place-items: center;
+  background: var(--go-bg); color: var(--go-ink); border: var(--bw) solid var(--hero-bc);
 }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 </style>

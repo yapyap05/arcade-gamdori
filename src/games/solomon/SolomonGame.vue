@@ -1,24 +1,32 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
-import GameHeader from '../shared/GameHeader.vue'
-import TimerBar from '../shared/TimerBar.vue'
-import { useTimer, useLater, pick, hearts } from '../shared/kit'
+import PixelIcon from '../../components/PixelIcon.vue'
+import { useTimer, useLater, useKeys, pick, hearts } from '../shared/kit'
 import { sfx } from '../shared/sfx'
 
 const props = defineProps({ mode: { type: String, default: 'casual' } })
 const emit = defineEmits(['gameover'])
 
+// 무게 순서대로. 이웃한 물건도 무게 차이가 20% 이상 나도록 구성
 const ITEMS = [
-  { n: '🎈', w: 10 }, { n: '🍃', w: 15 }, { n: '🍎', w: 40 }, { n: '🎳', w: 150 },
-  { n: '🧱', w: 200 }, { n: '💰', w: 500 }, { n: '🥇', w: 505 }, { n: '💎', w: 1000 }, { n: '🏰', w: 9999 },
+  { icon: 'balloon', name: '풍선', w: 10 },
+  { icon: 'leaf', name: '나뭇잎', w: 15 },
+  { icon: 'apple', name: '사과', w: 40 },
+  { icon: 'bowling', name: '볼링공', w: 150 },
+  { icon: 'brick', name: '벽돌', w: 200 },
+  { icon: 'moneybag', name: '돈주머니', w: 500 },
+  { icon: 'goldbar', name: '금괴', w: 800 },
+  { icon: 'diamond', name: '다이아몬드', w: 1000 },
+  { icon: 'castle', name: '성', w: 9999 },
 ]
+const MIN_RATIO = 1.2
 const STAGES = [
-  { need: 5, limit: 5.0, range: [0, 4], label: '1단계: 풍선 vs 사과 (5초)' },
-  { need: 5, limit: 4.0, range: [1, 5], label: '2단계: 사과 vs 볼링공 (4초)' },
-  { need: 7, limit: 3.0, range: [2, 7], label: '3단계: 볼링공 vs 금괴 (3초)' },
-  { need: 7, limit: 2.5, range: [3, 8], label: '4단계: 정밀 측정 (2.5초)' },
-  { need: 10, limit: 2.0, range: [0, 9], label: '5단계: 극한의 무게 (2초)' },
+  { need: 5, limit: 5.0, range: [0, 4], label: '1단계 (5초)' },
+  { need: 5, limit: 4.0, range: [1, 5], label: '2단계 (4초)' },
+  { need: 7, limit: 3.0, range: [2, 7], label: '3단계 (3초)' },
+  { need: 7, limit: 2.5, range: [3, 8], label: '4단계 (2.5초)' },
+  { need: 10, limit: 2.0, range: [0, 9], label: '5단계 (2초)' },
 ]
 
 const status = ref('idle')
@@ -30,8 +38,8 @@ const correct = ref(0)
 const wrong = ref(0)
 const streak = ref(0)
 const lives = ref(3)
-const left = ref({ n: '🤔', w: 0 })
-const right = ref({ n: '🧐', w: 0 })
+const left = ref(null)
+const right = ref(null)
 const answer = ref('')
 const revealed = ref(false)
 const locked = ref(true)
@@ -41,11 +49,12 @@ const timer = useTimer()
 const { later, clearAll } = useLater()
 
 const stats = computed(() => [
-  { label: 'Stage', value: stageIdx.value + 1 },
+  { label: '단계', value: stageIdx.value + 1 },
   { label: '점수', value: score.value },
   { label: '라이프', value: hearts(lives.value) },
   { label: '연속', value: streak.value },
 ])
+const timerView = computed(() => ({ pct: timer.pct.value, text: timer.text.value, label: '시간' }))
 const tilt = computed(() => (!revealed.value ? 0 : answer.value === 'left' ? -9 : 9))
 
 function start() {
@@ -60,7 +69,7 @@ function question() {
   const pool = ITEMS.slice(cfg.range[0], cfg.range[1])
   const a = pick(pool)
   let b
-  do { b = pick(pool) } while (a === b)
+  do { b = pick(pool) } while (a === b || Math.max(a.w, b.w) / Math.min(a.w, b.w) < MIN_RATIO)
   left.value = a
   right.value = b
   answer.value = a.w > b.w ? 'left' : 'right'
@@ -80,11 +89,11 @@ function choose(side) {
   if (ok) {
     const gain = 10 + Math.floor(remain) // 빠를수록 보너스
     score.value += gain; got.value++; correct.value++; streak.value++
-    toast.value = `정답! +${gain}`
+    toast.value = `정답 +${gain}`
     sfx.correct()
   } else {
     wrong.value++; streak.value = 0; lives.value--
-    toast.value = side === 'timeout' ? '시간 초과!' : '오답!'
+    toast.value = side === 'timeout' ? '시간 초과' : '오답'
     sfx.wrong()
   }
   const cleared = got.value >= STAGES[stageIdx.value].need
@@ -112,50 +121,51 @@ function finish(cleared = false) {
   emit('gameover', { score: score.value, meta: { stage: stageIdx.value + 1, correct: correct.value, wrong: wrong.value, cleared } })
 }
 
-function onKey(e) {
+useKeys((e) => {
   if (status.value !== 'playing') return
-  if (e.code === 'ArrowLeft') choose('left')
-  else if (e.code === 'ArrowRight') choose('right')
-}
-onMounted(() => window.addEventListener('keydown', onKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') choose('left')
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') choose('right')
+})
 </script>
 
 <template>
-  <GameScreen v-model:stage="startStage" :status="status" :mode="mode" :score="score" :stages="STAGES.map((s) => s.label)"
-    title="I'm솔로몬" desc="더 무거운 물체를 고르세요. 3번 틀리면 끝! (← → 키도 가능)"
-    :summary="`${stageIdx + 1}단계 · 정답 ${correct} / 오답 ${wrong}`" @start="start">
-    <div class="wrap">
-      <GameHeader :stats="stats" @quit="finish()" />
-      <TimerBar :pct="timer.pct.value" :text="timer.text.value" label="남은 시간" />
-      <div class="stage">
-        <div class="pivot" />
-        <div class="beam" :style="{ transform: `rotate(${tilt}deg)` }">
-          <div class="plate"><span>{{ left.n }}</span></div>
-          <div class="plate"><span>{{ right.n }}</span></div>
-        </div>
-        <p class="toast" :class="{ on: toast }">{{ toast || '-' }}</p>
-      </div>
-      <div class="btns">
-        <button class="pick l" :disabled="locked" @click="choose('left')">여긴가?</button>
-        <button class="pick r" :disabled="locked" @click="choose('right')">이건가?</button>
+  <GameScreen v-model:stage="startStage" :status="status" :mode="mode" :score="score" :stats="stats" :timer="timerView" :toast="toast"
+    :stages="STAGES.map((s) => s.label)" title="I'm솔로몬"
+    :summary="`${stageIdx + 1}단계 · 정답 ${correct} · 오답 ${wrong}`" @start="start" @quit="finish()">
+    <div class="scale">
+      <div class="pivot" />
+      <div class="beam" :style="{ transform: `rotate(${tilt}deg)` }">
+        <div class="plate"><PixelIcon v-if="left" :name="left.icon" :size="56" :label="left.name" /></div>
+        <div class="plate"><PixelIcon v-if="right" :name="right.icon" :size="56" :label="right.name" /></div>
       </div>
     </div>
+    <template #controls>
+      <div class="btns">
+        <button class="pick" :disabled="locked" @click="choose('left')">{{ left?.name ?? '왼쪽' }}</button>
+        <button class="pick" :disabled="locked" @click="choose('right')">{{ right?.name ?? '오른쪽' }}</button>
+      </div>
+    </template>
   </GameScreen>
 </template>
 
 <style scoped>
-.wrap { display: grid; gap: 14px; }
-.stage { position: relative; height: 230px; background: var(--board-bg); border-radius: 18px; display: grid; place-items: center; overflow: hidden; }
+.scale {
+  position: relative; height: 230px; display: grid; place-items: center; overflow: hidden;
+  border-radius: var(--r-md); background: var(--board-bg); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
+}
 .pivot { position: absolute; bottom: 0; width: 18px; height: 90px; background: var(--muted); border-radius: 10px 10px 0 0; }
-.beam { position: relative; width: 82%; display: flex; justify-content: space-between; border-top: 8px solid var(--muted); border-radius: 8px; transition: transform 0.45s cubic-bezier(.3,1.6,.5,1); margin-top: -40px; }
-.plate { margin-top: 10px; width: 110px; height: 90px; display: grid; place-items: center; background: var(--surface); border-radius: 0 0 60px 60px; box-shadow: var(--shadow); }
-.plate span { font-size: 54px; }
-.toast { position: absolute; top: 10px; margin: 0; font-weight: 800; opacity: 0.4; }
-.toast.on { opacity: 1; }
-.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.pick { padding: 22px 0; font-size: 20px; font-weight: 800; border-radius: 16px; border: 0; }
-.l { background: #38bdf8; color: #06293a; }
-.r { background: #ffc531; color: #2a2000; }
-.pick:disabled { opacity: 0.5; }
+.beam {
+  position: relative; width: 84%; margin-top: -40px; display: flex; justify-content: space-between;
+  border-top: 8px solid var(--muted); border-radius: 8px; transition: transform 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.plate {
+  margin-top: 10px; width: 104px; height: 88px; display: grid; place-items: center;
+  border-radius: 0 0 60px 60px; background: var(--surface); border: var(--bw) solid var(--bc); box-shadow: var(--sh-sm);
+}
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pick {
+  height: 60px; font-size: 18px; font-weight: 700; border-radius: var(--r-btn2);
+  border: var(--bw) solid var(--bc); background: var(--surface); color: var(--text); box-shadow: var(--sh-sm);
+}
+.pick:disabled { opacity: 0.55; }
 </style>
