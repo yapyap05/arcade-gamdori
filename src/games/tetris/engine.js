@@ -1,6 +1,7 @@
 /**
  * 테트리스 순수 로직 엔진 (Vue/DOM 의존성 없음 → 단위 테스트 가능)
  * - 7-bag 랜덤, 벽 차기(wall kick), 고스트, 홀드, 레벨/점수
+ * - 바닥 유예(lock delay): 바닥에 닿아도 0.5초 동안 움직이거나 돌릴 수 있음 (최대 15번 연장)
  */
 export const COLS = 10
 export const ROWS = 20
@@ -19,6 +20,8 @@ export const shapeOf = (type) => SHAPES[type].map((r) => [...r])
 
 const LINE_SCORE = [0, 100, 300, 500, 800]
 const KICKS = [[0, 0], [-1, 0], [1, 0], [0, -1], [-2, 0], [2, 0]]
+export const LOCK_DELAY = 500
+const MAX_RESETS = 15
 
 const rotateCW = (m) => m[0].map((_, c) => m.map((row) => row[c]).reverse())
 
@@ -59,7 +62,10 @@ export function createGame(rng = Math.random) {
     score: 0,
     lines: 0,
     level: 1,
-    over: false
+    over: false,
+    lockMs: 0, // 바닥에 닿은 뒤 지난 시간
+    resets: 0, // 유예 연장 횟수
+    dropAcc: 0 // 중력 누적 시간
   }
   refill(state)
   spawn(state, nextType(state))
@@ -79,8 +85,21 @@ function spawn(state, type) {
   const m = shapeOf(type)
   const piece = { type, m, x: Math.floor((COLS - m[0].length) / 2), y: type === 'I' ? -1 : 0 }
   state.piece = piece
+  state.lockMs = 0
+  state.resets = 0
+  state.dropAcc = 0
   if (collides(state.board, piece.m, piece.x, piece.y)) {
     state.over = true
+  }
+}
+
+export const grounded = (state) => collides(state.board, state.piece.m, state.piece.x, state.piece.y + 1)
+
+// 바닥에 닿은 상태에서 움직이거나 돌리면 유예 시간을 다시 채움
+function extendLock(state) {
+  if (state.resets < MAX_RESETS && grounded(state)) {
+    state.lockMs = 0
+    state.resets++
   }
 }
 
@@ -90,6 +109,7 @@ export function move(state, dx, dy) {
   if (collides(state.board, p.m, p.x + dx, p.y + dy)) return false
   p.x += dx
   p.y += dy
+  if (dx) extendLock(state)
   return true
 }
 
@@ -103,6 +123,7 @@ export function rotate(state, dir = 1) {
       p.m = m
       p.x += kx
       p.y += ky
+      extendLock(state)
       return true
     }
   }
@@ -141,17 +162,34 @@ function lock(state) {
   return cleared
 }
 
-/** 중력 1칸. 바닥이면 고정하고 지운 줄 수를 반환 */
-export function tick(state) {
-  if (state.over) return 0
-  if (move(state, 0, 1)) return 0
-  return lock(state)
+/**
+ * 시간 진행 (dt ms). 중력으로 내리고, 바닥 유예가 끝나면 고정
+ * 반환: 고정됐으면 지운 줄 수(0 이상), 고정되지 않았으면 -1
+ */
+export function update(state, dt) {
+  if (state.over) return -1
+  if (grounded(state)) {
+    state.dropAcc = 0
+    state.lockMs += dt
+    return state.lockMs >= LOCK_DELAY ? lock(state) : -1
+  }
+  state.lockMs = 0
+  state.dropAcc += dt
+  const iv = levelInterval(state.level)
+  while (state.dropAcc >= iv) {
+    state.dropAcc -= iv
+    if (!move(state, 0, 1)) { state.dropAcc = 0; break }
+  }
+  return -1
 }
 
+/** 한 칸 내리기 (+1점). 바닥이면 아무것도 안 함 — 고정은 유예 후 */
 export function softDrop(state) {
-  if (state.over) return
-  if (move(state, 0, 1)) state.score += 1
-  else lock(state)
+  if (state.over) return false
+  if (!move(state, 0, 1)) return false
+  state.score += 1
+  state.dropAcc = 0
+  return true
 }
 
 export function hardDrop(state) {

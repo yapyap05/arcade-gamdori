@@ -149,3 +149,36 @@ export function useSwipe(onSwipe, threshold = 30) {
 
 /** 라이프 표시용 값 — GameHeader 가 도트 하트로 그림 */
 export const hearts = (n, max = 3) => ({ lives: Math.max(0, n), max: Math.max(max, n) })
+
+/**
+ * 게임 루프 (requestAnimationFrame)
+ * 플레이 중이고 일시정지가 아닐 때만 돌고, 멈추면 마지막 화면을 한 번 그려 둠
+ *   update(dt ms) : 상태 갱신 / draw() : 그리기
+ */
+export function useLoop(update, draw) {
+  const ctx = useGameCtx()
+  let raf = 0
+  let last = 0
+  function frame(t) {
+    raf = requestAnimationFrame(frame)
+    const dt = Math.min(t - last, 100)
+    last = t
+    update?.(dt)
+    draw?.()
+  }
+  function run() {
+    if (raf) return
+    last = performance.now()
+    raf = requestAnimationFrame(frame)
+  }
+  function halt() {
+    cancelAnimationFrame(raf)
+    raf = 0
+  }
+  const stop = watch(() => ctx.playing && !ctx.paused, (on) => {
+    if (on) run()
+    else { halt(); draw?.() }
+  })
+  onBeforeUnmount(() => { stop(); halt() })
+  return { redraw: () => draw?.() }
+}

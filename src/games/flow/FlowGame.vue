@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
 import { useTimer, useLater, hearts } from '../shared/kit'
 import { sfx } from '../shared/sfx'
@@ -22,7 +22,8 @@ const toast = ref('')
 const locked = ref(true)
 const st = ref(null)
 const svg = ref(null)
-let level = null
+// 판 데이터는 반응형으로 — 같은 크기의 새 판이 나와도 점 위치가 다시 계산되도록 (2판부터 선이 안 이어지던 버그)
+const level = shallowRef(null)
 let active = -1
 let startIdx = 0
 
@@ -41,7 +42,7 @@ const timerView = computed(() => ({ pct: timer.pct.value, text: timer.text.value
 
 const pts = (p) => p.map((i) => { const [r, c] = rowCol(size.value, i); return `${(c + 0.5) * 100},${(r + 0.5) * 100}` }).join(' ')
 const center = (i) => { const [r, c] = rowCol(size.value, i); return { x: (c + 0.5) * 100, y: (r + 0.5) * 100 } }
-const dots = computed(() => (level ? level.pairs.flatMap((p) => [p.a, p.b].map((i) => ({ i, k: p.k, ...center(i) }))) : []))
+const dots = computed(() => (level.value ? level.value.pairs.flatMap((p) => [p.a, p.b].map((i) => ({ i, k: p.k, ...center(i) }))) : []))
 
 function start() {
   startIdx = props.mode === 'casual' ? startStage.value : 0
@@ -52,15 +53,15 @@ function start() {
 
 function newLevel() {
   size.value = SIZES[Math.min(SIZES.length - 1, startIdx + Math.floor(cleared.value / 3))]
-  level = generateLevel(size.value, size.value)
-  st.value = createState(level)
+  level.value = generateLevel(size.value, size.value)
+  st.value = createState(level.value)
   toast.value = ''
   active = -1
   locked.value = false
   timer.start(LIMIT[size.value], onTimeout)
 }
 
-const resetBoard = () => { if (!locked.value) st.value = createState(level) }
+const resetBoard = () => { if (!locked.value) st.value = createState(level.value) }
 
 function cellAt(e) {
   const r = svg.value.getBoundingClientRect()

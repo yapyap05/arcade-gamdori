@@ -8,11 +8,12 @@ import { sfx } from '../shared/sfx'
 const props = defineProps({ mode: { type: String, default: 'casual' } })
 const emit = defineEmits(['gameover'])
 
+// limit: 입력 제한 시간(초) — 곱셈·나눗셈은 더 길게
 const STAGES = [
-  { op: '+', name: '덧셈', waitSec: 3, need: 5, limit: 6 },
-  { op: '-', name: '뺄셈', waitSec: 3, need: 5, limit: 7 },
-  { op: '÷', name: '나눗셈(몫)', waitSec: 5, need: 3, limit: 8 },
-  { op: '×', name: '곱셈', waitSec: 5, need: 3, limit: 8 },
+  { op: '+', name: '덧셈', need: 5, limit: 8 },
+  { op: '-', name: '뺄셈', need: 5, limit: 8 },
+  { op: '÷', name: '나눗셈(몫)', need: 3, limit: 12 },
+  { op: '×', name: '곱셈', need: 3, limit: 12 },
 ]
 const DIGIT_PAIRS = [
   { d: [1, 1], p: 0.3 },
@@ -33,7 +34,7 @@ const lives = ref(3)
 const problem = ref(null)
 const reelA = ref('-')
 const reelB = ref('-')
-const phase = ref('idle') // spinning | waiting | answering | feedback
+const phase = ref('idle') // spinning | answering | feedback
 const choices = ref([])
 const picked = ref(null)
 const toast = ref('')
@@ -54,7 +55,7 @@ const stats = computed(() => [
 const timerView = computed(() => ({
   pct: timer.pct.value,
   text: timer.text.value,
-  label: phase.value === 'waiting' ? '대기' : phase.value === 'answering' ? '입력' : '준비',
+  label: phase.value === 'spinning' ? '준비' : '입력',
 }))
 
 const pickDigits = () => {
@@ -105,7 +106,7 @@ function start() {
   nextQuestion()
 }
 
-// 슬롯 릴 연출 → 문제 공개 → 대기(암기) → 입력 시작
+// 슬롯 릴 연출 → 문제 공개와 동시에 입력 시작
 function nextQuestion() {
   clearAll(); timer.stop(); clearInterval(spinId)
   problem.value = makeProblem(info.value.op)
@@ -123,12 +124,9 @@ function nextQuestion() {
     clearInterval(spinId)
     reelA.value = String(problem.value.a)
     reelB.value = String(problem.value.b)
-    phase.value = 'waiting'
+    phase.value = 'answering'
     choices.value = makeChoices(problem.value.answer)
-    timer.start(info.value.waitSec, () => {
-      phase.value = 'answering'
-      timer.start(info.value.limit, onTimeout)
-    })
+    timer.start(info.value.limit, onTimeout)
   }, 1300)
 }
 

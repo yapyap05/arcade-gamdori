@@ -12,6 +12,14 @@ const PATHS = {
   down: 'M6 9l6 6 6-6',
   rotate: 'M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M20 12a8 8 0 0 1-14 5.3M6 21v-4h4',
   pause: 'M9 5v14M15 5v14',
+  left: 'M15 5l-7 7 7 7',
+  right: 'M9 5l7 7-7 7',
+  up: 'M5 15l7-7 7 7',
+  turn: 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5',
+  drop: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  hold: 'M4 6h16v12H4zM9 12h6',
+  pin: 'M12 16v6M8 3h8l-1 6 3 3H6l3-3z',
+  weight: 'M5 20h14l-2-10H7zM9 10a3 3 0 1 1 6 0',
   help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01',
 }
 defineProps({ name: { type: String, required: true } })

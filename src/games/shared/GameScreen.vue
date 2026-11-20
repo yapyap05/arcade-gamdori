@@ -15,7 +15,7 @@ import { useGameCtx } from './context'
  */
 const props = defineProps({
   status: { type: String, default: 'idle' }, // idle | playing | over
-  title: String,
+  title: String, // registry 에 등록된 제목이 있으면 그걸 사용
   desc: String, // (호환용, 표시하지 않음 — 설명은 튜토리얼에서)
   score: { type: Number, default: 0 },
   summary: String,
@@ -58,7 +58,7 @@ function start() {
     <div v-if="status !== 'playing'" class="overlay">
       <div class="card">
         <PixelIcon v-if="ctx.game" :name="ctx.game.id" :size="56" />
-        <h2>{{ status === 'over' ? '게임 종료' : title }}</h2>
+        <h2>{{ status === 'over' ? '게임 종료' : (ctx.game?.title ?? title) }}</h2>
         <template v-if="status === 'over'">
           <p class="big num">{{ score.toLocaleString() }}<small>점</small></p>
           <p v-if="summary" class="sub">{{ summary }}</p>

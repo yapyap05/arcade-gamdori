@@ -12,6 +12,8 @@ export const PALETTE = {
   e: '#8B5A2B', // 갈색
   g: '#9AA0A6', // 회색
   w: '#FFFFFF', // 흰색
+  k: '#F2C9A0', // 피부
+  n: '#2B2F3A', // 남색 정장
 }
 
 export const ICONS = {
@@ -335,5 +337,83 @@ export const ICONS = {
     'ggg##ggg',
     'ggg##ggg',
     'ggg##ggg',
+  ],
+
+  // ───── 두더지·낙서용 ─────
+  mole: [
+    '..eeeeee..',
+    '.eeeeeeee.',
+    'ee#eeee#ee',
+    'eeeeeeeeee',
+    'eeeebbeeee',
+    'eeewwwweee',
+    'eeeewweeee',
+    'eeeeeeeeee',
+    '.eeeeeeee.',
+  ],
+  bomb: [
+    '.......c..',
+    '......c.c.',
+    '.....#....',
+    '...####...',
+    '..######..',
+    '.##w#####.',
+    '.#w######.',
+    '.########.',
+    '..######..',
+    '...####...',
+  ],
+  boom: [
+    '....c.....',
+    '.c..cc..c.',
+    '..cbbbbc..',
+    '.cbbccbbc.',
+    'ccbcwwcbcc',
+    '..bcwwcb..',
+    '.cbbccbbc.',
+    '..cbbbbc..',
+    '.c..cc..c.',
+    '.....c....',
+  ],
+  star: [
+    '....c....',
+    '....c....',
+    '...ccc...',
+    'ccccccccc',
+    '.ccccccc.',
+    '..ccccc..',
+    '..cc.cc..',
+    '.cc...cc.',
+    '.c.....c.',
+  ],
+
+  // ───── 벽돌부수기 특수 캐릭터 (10x12) ─────
+  kim: [ // 김부장: 생명 +1
+    '...####...',
+    '..#kkkk#..',
+    '..k#kk#k..',
+    '..kkkkkk..',
+    '...k##k...',
+    '....kk....',
+    '.nnnwwnnn.',
+    'nnnnwbnnnn',
+    'nnnnwbnnnn',
+    'nnnnnbnnnn',
+    'nn.nnnn.nn',
+    '...n..n...',
+  ],
+  rookie: [ // 무개념 신입: 공 2개
+    '.#.####.#.',
+    '..######..',
+    '.a#kkkk#a.',
+    '.ak#kk#ka.',
+    '.akkkkkka.',
+    '..kkbbkk..',
+    '...kkkk...',
+    '.dddddddd.',
+    'dddwddwddd',
+    'dddwddwddd',
+    'dd.dddd.dd',
+    '...d..d...',
   ],
 }
