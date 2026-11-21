@@ -3,14 +3,14 @@ import { ref, computed, onMounted } from 'vue'
 import Matter from 'matter-js'
 import GameScreen from '../shared/GameScreen.vue'
 import Icon from '../../components/Icon.vue'
-import { useLater, useTimer, useLoop, hearts } from '../shared/kit'
+import { useLater, useTimer, useLoop, hearts, shuffle } from '../shared/kit'
 import { setupCanvas, useThemeColors, drawPixel } from '../shared/canvas'
 import { sfx } from '../shared/sfx'
 import { W, H, BALL_R, LEVELS } from './levels'
 
 defineProps({ mode: { type: String, default: 'casual' } })
 const emit = defineEmits(['gameover'])
-const { Engine, Bodies, Body, Composite } = Matter
+const { Engine, Bodies, Body, Composite, Constraint } = Matter
 
 const STEP = 1000 / 60
 const LEVEL_TIME = 40 // 단계를 불러온 순간부터 (그리는 시간 + 물리 시간)
@@ -18,7 +18,9 @@ const THICK = 10
 const FIXED_COST = 1.5
 
 const status = ref('idle')
-const levelIdx = ref(0)
+const levelIdx = ref(0) // LEVELS 안의 번호
+const pos = ref(0) // 이번 판에서 몇 번째 스테이지인지
+let order = LEVELS.map((_, i) => i) // 무작위 출제 순서
 const score = ref(0)
 const lives = ref(3)
 const cleared = ref(0)
@@ -32,6 +34,7 @@ const timer = useTimer()
 
 let engine = null, c2d = null, acc = 0
 let balls = {}, statics = [], strokes = [], star = null
+let pegs = [], crates = [], seesaws = [], spikes = [], cup = null, stars = [], got = new Set()
 let phase = 'ready' // ready(첫 선을 그리기 전) | run | won | lost
 let drawing = false, pts = []
 const colors = useThemeColors(['board-bg', 'muted', 'text', 'accent'], () => render())
@@ -39,26 +42,46 @@ const colors = useThemeColors(['board-bg', 'muted', 'text', 'accent'], () => ren
 const level = computed(() => LEVELS[levelIdx.value])
 const inkLeft = computed(() => Math.max(0, Math.round(((level.value.ink - inkUsed.value) / level.value.ink) * 100)))
 const stats = computed(() => [
-  { label: '단계', value: `${levelIdx.value + 1}/${LEVELS.length}` },
+  { label: '단계', value: `${pos.value + 1}/${LEVELS.length}` },
   { label: '점수', value: score.value },
   { label: '라이프', value: hearts(lives.value) },
   { label: '잉크', value: inkLeft.value + '%' },
 ])
 const timerView = computed(() => ({ pct: timer.pct.value, text: timer.text.value, label: '시간' }))
 
-function loadLevel(i) {
+const wall = (x, y, w, h, a = 0) => Bodies.rectangle(x, y, w, h, { isStatic: true, angle: a, friction: 0.8, label: 'wall' })
+
+// p = 이번 판의 몇 번째 스테이지
+function loadLevel(p) {
   if (engine) { Composite.clear(engine.world, false); Engine.clear(engine) } // 이전 물리 세계 정리
-  levelIdx.value = i
-  const lv = LEVELS[i]
+  pos.value = p
+  levelIdx.value = order[p]
+  const lv = LEVELS[levelIdx.value]
   engine = Engine.create()
   engine.gravity.y = 1
-  statics = lv.statics.map((s) => Bodies.rectangle(s.x, s.y, s.w, s.h, { isStatic: true, angle: s.a, friction: 0.8, label: 'wall' }))
+  statics = (lv.statics ?? []).map((s) => wall(s.x, s.y, s.w, s.h, s.a))
+  cup = lv.cup ?? null
+  if (cup) { // U자 컵 = 바닥 + 양쪽 벽
+    const t = 8
+    statics.push(wall(cup.x, cup.y + cup.h / 2 - t / 2, cup.w, t), wall(cup.x - cup.w / 2 + t / 2, cup.y, t, cup.h), wall(cup.x + cup.w / 2 - t / 2, cup.y, t, cup.h))
+  }
+  pegs = (lv.pegs ?? []).map((g) => Bodies.circle(g.x, g.y, g.r, { isStatic: true, restitution: 0.5, label: 'peg' }))
+  crates = (lv.crates ?? []).map((c) => Bodies.rectangle(c.x, c.y, c.w, c.h, { density: 0.003, friction: 0.6, label: 'crate' }))
+  const joints = []
+  seesaws = (lv.seesaws ?? []).map((sw) => {
+    const plank = Bodies.rectangle(sw.x, sw.y, sw.w, 12, { density: 0.002, friction: 0.8, label: 'seesaw' })
+    joints.push(Constraint.create({ pointA: { x: sw.x, y: sw.y }, bodyB: plank, pointB: { x: 0, y: 0 }, length: 0, stiffness: 1 }))
+    return { plank, x: sw.x, y: sw.y }
+  })
+  spikes = lv.spikes ?? []
   balls = {}
   lv.balls.forEach((b) => {
     balls[b.id] = Bodies.circle(b.x, b.y, BALL_R, { label: b.id, restitution: 0.25, friction: 0.05, frictionAir: 0.002, density: 0.002 })
   })
   star = lv.star || null
-  Composite.add(engine.world, [...statics, ...Object.values(balls)])
+  stars = lv.stars ?? []
+  got = new Set()
+  Composite.add(engine.world, [...statics, ...pegs, ...crates, ...seesaws.map((s) => s.plank), ...joints, ...Object.values(balls)])
   strokes = []
   inkUsed.value = 0
   acc = 0
@@ -71,6 +94,7 @@ function loadLevel(i) {
 function start() {
   clearAll()
   score.value = 0; lives.value = 3; cleared.value = 0; attempts.value = 0
+  order = shuffle(LEVELS.map((_, i) => i)) // 매 판 무작위 순서, 한 판 안에서는 중복 없음
   status.value = 'playing'
   loadLevel(0)
 }
@@ -102,7 +126,7 @@ function makeStroke(points, fixed) {
   return { fixed: false, bodies: [body] }
 }
 
-function pos(e) {
+function pointAt(e) {
   const r = canvas.value.getBoundingClientRect()
   return { x: ((e.clientX - r.left) * W) / r.width, y: ((e.clientY - r.top) * H) / r.height }
 }
@@ -112,12 +136,12 @@ function down(e) {
   if (status.value !== 'playing' || (phase !== 'ready' && phase !== 'run')) return
   if (inkUsed.value >= level.value.ink) return
   drawing = true
-  pts = [pos(e)]
+  pts = [pointAt(e)]
   canvas.value.setPointerCapture?.(e.pointerId)
 }
 function move(e) {
   if (!drawing) return
-  const p = pos(e)
+  const p = pointAt(e)
   const d = dist(p, pts[pts.length - 1])
   if (d < 7) return
   if (inkUsed.value + d * unit() > level.value.ink) return up() // 잉크 소진 → 자동으로 선 끝
@@ -141,14 +165,29 @@ function up() {
 }
 
 // ───── 규칙 판정 ─────
+// 원과 사각형이 겹치는지
+const hitsRect = (p, r) => {
+  const nx = Math.max(r.x - r.w / 2, Math.min(p.x, r.x + r.w / 2))
+  const ny = Math.max(r.y - r.h / 2, Math.min(p.y, r.y + r.h / 2))
+  return (p.x - nx) ** 2 + (p.y - ny) ** 2 <= BALL_R ** 2
+}
 function checkRules() {
   for (const b of Object.values(balls)) {
     const p = b.position
     if (p.y > H + 80 || p.x < -80 || p.x > W + 80) return finishLevel(false, '공이 떨어졌어요')
+    if (spikes.some((sp) => hitsRect(p, sp))) return finishLevel(false, '가시에 닿았어요')
   }
   const lv = level.value
-  if (lv.goal === 'touch' && dist(balls.red.position, balls.blue.position) <= BALL_R * 2 + 2) return finishLevel(true)
-  if (lv.goal === 'star' && dist(balls.red.position, star) <= BALL_R + 16) return finishLevel(true)
+  const red = balls.red.position
+  if (lv.goal === 'touch' && dist(red, balls.blue.position) <= BALL_R * 2 + 2) return finishLevel(true)
+  if (lv.goal === 'star' && dist(red, star) <= BALL_R + 16) return finishLevel(true)
+  if (lv.goal === 'stars') {
+    stars.forEach((st, i) => {
+      if (!got.has(i) && dist(red, st) <= BALL_R + 14) { got.add(i); sfx.tick() }
+    })
+    if (got.size === stars.length) return finishLevel(true)
+  }
+  if (lv.goal === 'cup' && cup && Math.abs(red.x - cup.x) < cup.w / 2 - 8 && red.y > cup.y - cup.h / 2 && red.y < cup.y + cup.h / 2) return finishLevel(true)
 }
 
 function finishLevel(ok, msg = '') {
@@ -164,8 +203,8 @@ function finishLevel(ok, msg = '') {
     sfx.levelUp()
     later(() => {
       attempts.value = 0
-      if (levelIdx.value >= LEVELS.length - 1) { score.value += 300; return finish() } // 전부 클리어 보너스
-      loadLevel(levelIdx.value + 1)
+      if (pos.value >= order.length - 1) { score.value += 300; return finish() } // 20개 모두 클리어 보너스
+      loadLevel(pos.value + 1)
     }, 1300)
   } else {
     phase = 'lost'
@@ -173,7 +212,7 @@ function finishLevel(ok, msg = '') {
     attempts.value++
     toast.value = msg
     sfx.wrong()
-    later(() => (lives.value <= 0 ? finish() : loadLevel(levelIdx.value)), 1200)
+    later(() => (lives.value <= 0 ? finish() : loadLevel(pos.value)), 1200)
   }
 }
 
@@ -181,7 +220,7 @@ function finishLevel(ok, msg = '') {
 function redraw() {
   if (status.value !== 'playing' || phase === 'won' || phase === 'lost') return
   if (strokes.length) attempts.value++
-  loadLevel(levelIdx.value)
+  loadLevel(pos.value)
 }
 
 function finish() {
@@ -191,7 +230,7 @@ function finish() {
   status.value = 'over'
   phase = 'lost'
   sfx.over()
-  emit('gameover', { score: score.value, meta: { stage: levelIdx.value + 1, cleared: cleared.value } })
+  emit('gameover', { score: score.value, meta: { stage: pos.value + 1, cleared: cleared.value } })
 }
 
 useLoop((dt) => {
@@ -224,6 +263,36 @@ function render() {
   if (!engine) return
   c2d.fillStyle = colors.muted
   statics.forEach(fillBody)
+  pegs.forEach(fillBody)
+  // 가시
+  c2d.fillStyle = '#FF4D6D'
+  spikes.forEach((sp) => {
+    const n = Math.max(1, Math.round(sp.w / 16))
+    const left = sp.x - sp.w / 2, top = sp.y - sp.h / 2, bw = sp.w / n
+    c2d.beginPath()
+    for (let i = 0; i < n; i++) {
+      c2d.moveTo(left + i * bw, top + sp.h)
+      c2d.lineTo(left + i * bw + bw / 2, top)
+      c2d.lineTo(left + (i + 1) * bw, top + sp.h)
+    }
+    c2d.fill()
+  })
+  // 상자
+  c2d.fillStyle = '#B7793E'
+  crates.forEach(fillBody)
+  // 시소 (받침 + 판)
+  seesaws.forEach((sw) => {
+    c2d.fillStyle = colors.muted
+    c2d.beginPath()
+    c2d.moveTo(sw.x, sw.y)
+    c2d.lineTo(sw.x - 14, H - 30)
+    c2d.lineTo(sw.x + 14, H - 30)
+    c2d.fill()
+    c2d.fillStyle = '#8B5A2B'
+    fillBody(sw.plank)
+  })
+  // 별 여러 개 (모은 별은 사라짐)
+  stars.forEach((st, i) => { if (!got.has(i)) drawPixel(c2d, 'star', st.x, st.y, 26) })
   strokes.forEach((s) => {
     c2d.fillStyle = s.fixed ? colors.text : colors.accent
     c2d.globalAlpha = s.fixed ? 0.75 : 1

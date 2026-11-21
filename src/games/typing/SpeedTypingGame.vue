@@ -1,12 +1,11 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
-import GameHeader from '../shared/GameHeader.vue'
-import TimerBar from '../shared/TimerBar.vue'
+import TypingInput from '../shared/TypingInput.vue'
 import { useTimer, useLater, pick, hearts } from '../shared/kit'
 import { sfx } from '../shared/sfx'
 
-defineProps({ mode: { type: String, default: 'casual' } })
+const props = defineProps({ mode: { type: String, default: 'casual' } })
 const emit = defineEmits(['gameover'])
 
 const TIMES = [12, 10, 8, 7, 5]
@@ -17,72 +16,89 @@ const WORDS = {
 
 const status = ref('idle')
 const lang = ref('KR')
+const startIdx = ref(0)
 const stageIdx = ref(0)
 const target = ref('')
 const typed = ref('')
+const composing = ref(false)
 const score = ref(0)
 const correct = ref(0)
 const wrong = ref(0)
 const streak = ref(0)
 const lives = ref(3)
 const active = ref(false)
-const feedback = ref('')
-const inputEl = ref(null)
+const toast = ref('')
+const input = ref(null)
 
 const timer = useTimer()
 const { later, clearAll } = useLater()
-let stageStart = 0
 
 const stats = computed(() => [
-  { label: 'Lv', value: stageIdx.value + 1 },
+  { label: '단계', value: stageIdx.value + 1 },
   { label: '점수', value: score.value },
   { label: '라이프', value: hearts(lives.value) },
-  { label: '콤보', value: streak.value },
+  { label: '연속', value: streak.value },
 ])
-const chars = computed(() => target.value.split('').map((ch, i) => ({
-  ch,
-  cls: i < typed.value.length ? (typed.value[i] === ch ? 'ok' : 'bad') : i === typed.value.length ? 'cur' : '',
-})))
+const timerView = computed(() => ({ pct: timer.pct.value, text: timer.text.value, label: '시간' }))
+// 조합 중인 마지막 글자는 맞고 틀림을 판정하지 않음
+const chars = computed(() => {
+  const n = typed.value.length
+  return target.value.split('').map((ch, i) => ({
+    ch,
+    cls: i < n
+      ? (composing.value && i === n - 1 ? 'comp' : typed.value[i] === ch ? 'ok' : 'bad')
+      : i === n ? 'cur' : '',
+  }))
+})
 
 function start() {
-  stageIdx.value = 0; score.value = 0; correct.value = 0; wrong.value = 0; streak.value = 0; lives.value = 3
+  stageIdx.value = props.mode === 'casual' ? startIdx.value : 0 // 시작 단계 선택은 캐주얼만
+  score.value = 0; correct.value = 0; wrong.value = 0; streak.value = 0; lives.value = 3
   status.value = 'playing'
+  input.value?.focus() // 시작 버튼을 누른 그 순간에 포커스해야 모바일 키보드가 열림
   startStage()
 }
 
 function startStage() {
   const pool = WORDS[lang.value]
   target.value = [pick(pool), pick(pool), pick(pool)].join(' ')
+  input.value?.clear()
   typed.value = ''
-  feedback.value = ''
+  composing.value = false
+  toast.value = ''
   active.value = true
-  stageStart = performance.now()
   timer.start(TIMES[stageIdx.value], () => fail('시간 초과'))
-  nextTick(() => inputEl.value?.focus())
 }
 
-// 정확히 입력하면 Enter 없이 바로 성공 처리
-watch(typed, (v, old) => {
+function onChange({ value, composing: c }) {
   if (!active.value) return
-  if (v.length > (old?.length ?? 0)) sfx.key()
-  if (v === target.value) success()
-})
+  if (value.length > typed.value.length) sfx.key()
+  typed.value = value
+  composing.value = c
+  if (value === target.value) success() // 정확히 입력하면 Enter 없이 바로 성공
+}
+
+function onSubmit(value) {
+  if (!active.value) return
+  if (value === target.value) success()
+  else fail('오타')
+}
 
 function success() {
   active.value = false
   const remain = timer.remain.value
-  const elapsed = (performance.now() - stageStart) / 1000
   timer.stop()
   const gain = 100 + Math.floor(remain * 10) + streak.value * 5
   score.value += gain; correct.value++; streak.value++
-  feedback.value = `성공! +${gain} (${Math.round(target.value.length / 5 / (elapsed / 60))} WPM)`
+  toast.value = `성공 +${gain}`
   sfx.correct()
+  input.value?.clear()
   later(() => {
     if (stageIdx.value >= TIMES.length - 1) return finish(true)
     stageIdx.value++
     sfx.levelUp()
     startStage()
-  }, 1000)
+  }, 900)
 }
 
 function fail(reason) {
@@ -90,14 +106,13 @@ function fail(reason) {
   active.value = false
   timer.stop()
   wrong.value++; streak.value = 0; lives.value--
-  feedback.value = `${reason}!`
+  toast.value = reason
   sfx.wrong()
   later(() => (lives.value <= 0 ? finish() : startStage()), 1200)
 }
 
-const submit = () => active.value && fail('오타 발생') // Enter 시 일치하지 않으면 실패
-
 function finish(cleared = false) {
+  if (status.value !== 'playing') return
   clearAll(); timer.stop()
   active.value = false
   status.value = 'over'
@@ -107,39 +122,34 @@ function finish(cleared = false) {
 </script>
 
 <template>
-  <GameScreen :status="status" :mode="mode" :score="score" title="키보드워리어"
-    desc="제한 시간 안에 단어 3개를 정확히 입력하세요. 5단계까지 가면 클리어! 실패 3번이면 끝!"
-    :summary="`${stageIdx + 1}단계 · 성공 ${correct} / 실패 ${wrong}`" @start="start">
+  <GameScreen v-model:stage="startIdx" :status="status" :mode="mode" :score="score" :stats="stats" :timer="timerView" :toast="toast"
+    :stages="TIMES.map((t, i) => `${i + 1}단계 (${t}초)`)" title="키보드워리어"
+    :summary="`${stageIdx + 1}단계 · 성공 ${correct} · 실패 ${wrong}`" @start="start" @quit="finish()">
     <template #options>
-      <label class="opt">언어
-        <select v-model="lang"><option value="KR">🇰🇷 한글 단어</option><option value="EN">🇺🇸 영어 단어</option></select>
+      <label class="opt">
+        <span>단어</span>
+        <select v-model="lang"><option value="KR">한글</option><option value="EN">영어</option></select>
       </label>
     </template>
-    <div class="wrap">
-      <GameHeader :stats="stats" @quit="finish()" />
-      <TimerBar :pct="timer.pct.value" :text="timer.text.value" label="제한 시간" />
-      <div class="target" aria-label="입력할 문장">
-        <span v-for="(c, i) in chars" :key="i" class="ch" :class="c.cls">{{ c.ch === ' ' ? '\u00A0' : c.ch }}</span>
-      </div>
-      <form @submit.prevent="submit">
-        <input ref="inputEl" v-model="typed" class="in" :disabled="!active" autocomplete="off" autocorrect="off" enterkeyhint="done" @paste.prevent @drop.prevent autocapitalize="off" spellcheck="false" placeholder="여기에 입력하세요" aria-label="입력" />
-      </form>
-      <p class="msg" role="status">{{ feedback }}</p>
+    <div class="target" aria-label="입력할 단어">
+      <p class="line"><span v-for="(c, i) in chars" :key="i" class="ch" :class="c.cls">{{ c.ch }}</span></p>
     </div>
+    <template #controls>
+      <TypingInput ref="input" :locked="!active" placeholder="여기에 입력" @change="onChange" @submit="onSubmit" />
+    </template>
   </GameScreen>
 </template>
 
 <style scoped>
-.wrap { display: grid; gap: 14px; }
-.target { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; min-height: 140px; padding: 20px; border-radius: 18px; background: var(--board-bg); font-size: 34px; font-weight: 800; letter-spacing: 1px; }
+.target {
+  display: flex; align-items: center; justify-content: center; min-height: 140px; padding: 18px; text-align: center;
+  border-radius: var(--r-md); background: var(--board-bg); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
+  font-size: 28px; font-weight: 700; letter-spacing: 1px;
+}
+.line { margin: 0; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
 .ch { color: var(--muted); border-bottom: 3px solid transparent; }
-.ch.ok { color: #2fd46b; }
+.ch.ok { color: var(--accent); }
 .ch.bad { color: var(--danger); text-decoration: underline; }
+.ch.comp { color: var(--text); border-bottom-color: var(--muted); }
 .ch.cur { border-bottom-color: var(--accent); color: var(--text); }
-.in { width: 100%; padding: 16px; font-size: 22px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); }
-.in:focus { border-color: var(--accent); outline: none; }
-.msg { margin: 0; text-align: center; font-weight: 800; min-height: 24px; }
-.opt { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
-select { padding: 8px 12px; border-radius: 10px; border: 0; background: #fff; color: #1a1d3a; font-weight: 600; }
-@media (max-width: 520px) { .target { font-size: 24px; } }
 </style>

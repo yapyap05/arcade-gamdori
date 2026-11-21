@@ -1,8 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
-import GamePad from '../shared/GamePad.vue'
-import { useKeys, useSwipe, useLoop, arrowDir, pick } from '../shared/kit'
+import { useKeys, useLoop, arrowDir, pick } from '../shared/kit'
+import { useGameCtx } from '../shared/context'
 import { setupCanvas, useThemeColors, drawPixel } from '../shared/canvas'
 import { sfx } from '../shared/sfx'
 
@@ -51,12 +51,15 @@ function start() {
   draw()
 }
 
+// 방향 바꾸기. 바꿨으면 true (같은 방향·정반대·입력이 2개 쌓였으면 false)
 function turn(d) {
-  if (status.value !== 'playing') return
+  if (status.value !== 'playing') return false
   const [x, y] = DIR[d]
   const last = queue.length ? queue[queue.length - 1] : dir
-  if ((last[0] === -x && last[1] === -y) || (last[0] === x && last[1] === y)) return // 반대·같은 방향 무시
-  if (queue.length < 2) queue.push([x, y]) // 빠른 연속 회전 허용
+  if ((last[0] === -x && last[1] === -y) || (last[0] === x && last[1] === y)) return false // 반대·같은 방향 무시
+  if (queue.length >= 2) return false
+  queue.push([x, y]) // 빠른 연속 회전 허용
+  return true
 }
 
 function tick() {
@@ -119,13 +122,38 @@ useKeys((e) => {
   e.preventDefault()
   turn(d)
 })
-const swipe = useSwipe(turn, 24)
-const PAD = [
-  { id: 'U', icon: 'up', label: '위', area: 'up' },
-  { id: 'L', icon: 'left', label: '왼쪽', area: 'left' },
-  { id: 'R', icon: 'right', label: '오른쪽', area: 'right' },
-  { id: 'D', icon: 'down', label: '아래', area: 'down' },
-]
+/* ───── 게임판 터치·클릭 ─────
+ * 조금만 움직이고 떼면 '탭' → 누른 위치 쪽으로 꺾기
+ * 많이 움직이면 '스와이프' → 민 방향으로 꺾기
+ */
+const ctx = useGameCtx()
+const SWIPE = 24
+let sx = 0, sy = 0, down = false
+
+// 탭한 위치(게임판 좌표)를 기준으로 머리에서 더 먼 축의 방향 → 못 꺾으면 다른 축
+function turnToward(px, py) {
+  const h = snake[0]
+  if (!h) return
+  const dx = px - (h.x + 0.5) * CELL
+  const dy = py - (h.y + 0.5) * CELL
+  const hz = dx > 0 ? 'R' : 'L'
+  const vt = dy > 0 ? 'D' : 'U'
+  const [first, second] = Math.abs(dx) >= Math.abs(dy) ? [hz, vt] : [vt, hz]
+  if (!turn(first)) turn(second)
+}
+function onDown(e) { down = true; sx = e.clientX; sy = e.clientY }
+function onUp(e) {
+  if (!down) return
+  down = false
+  if (ctx.paused || status.value !== 'playing') return
+  const mx = e.clientX - sx, my = e.clientY - sy
+  if (Math.max(Math.abs(mx), Math.abs(my)) >= SWIPE) {
+    turn(Math.abs(mx) > Math.abs(my) ? (mx > 0 ? 'R' : 'L') : my > 0 ? 'D' : 'U')
+    return
+  }
+  const r = canvas.value.getBoundingClientRect()
+  turnToward(((e.clientX - r.left) / r.width) * COLS * CELL, ((e.clientY - r.top) / r.height) * ROWS * CELL)
+}
 
 onMounted(() => {
   c2d = setupCanvas(canvas.value, COLS * CELL, ROWS * CELL)
@@ -136,10 +164,7 @@ onMounted(() => {
 <template>
   <GameScreen :status="status" :mode="mode" :score="score" :stats="stats" title="스네이크 러시"
     :summary="`길이 ${length}`" @start="start" @quit="finish">
-    <canvas ref="canvas" class="board" v-on="swipe" />
-    <template #controls>
-      <GamePad :buttons="PAD" layout="dpad" :disabled="status !== 'playing'" @press="turn" />
-    </template>
+    <canvas ref="canvas" class="board" @pointerdown="onDown" @pointerup="onUp" @pointercancel="down = false" />
   </GameScreen>
 </template>
 

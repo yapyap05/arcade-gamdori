@@ -155,7 +155,7 @@ if (!getGame(props.id)) router.replace('/')
 .right { display: flex; gap: 8px; }
 .seg button:disabled { cursor: default; }
 .stage {
-  position: relative; padding: 12px; border-radius: var(--r-md);
+  position: relative; min-width: 0; padding: 12px; border-radius: var(--r-md);
   background: var(--surface); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
 }
 .paused {

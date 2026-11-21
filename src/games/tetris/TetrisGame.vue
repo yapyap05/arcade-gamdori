@@ -95,13 +95,15 @@ useKeys((e) => {
   if (e.repeat && NO_REPEAT.has(name)) return // 누르고 있어도 회전·바로 내리기는 한 번만
   run(name)
 })
+// 터치 기기용 플로팅 조작부 (데스크탑은 숨기고 키보드 사용)
 const PAD = [
-  { id: 'hold', icon: 'hold', label: '홀드' },
-  { id: 'rotate', icon: 'turn', label: '회전' },
-  { id: 'drop', icon: 'drop', label: '바로 내리기' },
-  { id: 'left', icon: 'left', label: '왼쪽', repeat: true },
-  { id: 'down', icon: 'down', label: '한 칸 내리기', repeat: true },
-  { id: 'right', icon: 'right', label: '오른쪽', repeat: true },
+  { id: 'drop', icon: 'up', label: '바로 내리기', area: 'up' },
+  { id: 'left', icon: 'left', label: '왼쪽', area: 'left', repeat: true },
+  { id: 'right', icon: 'right', label: '오른쪽', area: 'right', repeat: true },
+  { id: 'down', icon: 'down', label: '한 칸 내리기', area: 'down', repeat: true },
+  { id: 'hold', icon: 'swap', label: '홀드', area: 'hold', group: 'right' },
+  { id: 'rotateBack', icon: 'ccw', label: '왼쪽으로 회전', area: 'ccw', group: 'right' },
+  { id: 'rotate', icon: 'cw', label: '오른쪽으로 회전', area: 'cw', group: 'right' },
 ]
 
 /* ───── 그리기 ───── */
@@ -161,27 +163,31 @@ onMounted(() => {
   <GameScreen :status="status" :mode="mode" :score="score" :stats="stats" title="테트리스"
     :summary="`${lines}줄 · 레벨 ${level}`" @start="start" @quit="finish">
     <div class="play">
-      <canvas ref="boardEl" class="board" />
       <div class="side">
         <span class="lbl">홀드</span>
         <canvas ref="holdEl" class="mini" />
+      </div>
+      <canvas ref="boardEl" class="board" />
+      <div class="side">
         <span class="lbl">다음</span>
         <canvas v-for="n in 3" :key="n" ref="nextEls" class="mini" />
       </div>
+      <GamePad :buttons="PAD" layout="float" :disabled="status !== 'playing'" @press="run" />
     </div>
-    <template #controls>
-      <GamePad :buttons="PAD" :disabled="status !== 'playing'" @press="run" />
-    </template>
   </GameScreen>
 </template>
 
 <style scoped>
-.play { display: flex; justify-content: center; align-items: flex-start; gap: 10px; }
+.play { position: relative; display: flex; justify-content: center; align-items: flex-start; gap: 8px; }
+/* 터치 기기: 플로팅 조작부가 게임판 아래쪽만 살짝 덮도록 아래 여백 확보 (데스크탑은 조작부를 숨기므로 여백 없음) */
+@media (hover: none), (pointer: coarse) {
+  .play { padding-bottom: 100px; }
+}
 .board {
-  display: block; width: min(calc(100% - 82px), 27vh, 220px); aspect-ratio: 1 / 2; height: auto;
+  display: block; width: min(calc(100% - 152px), 32vh, 260px); aspect-ratio: 1 / 2; height: auto;
   border-radius: var(--r-md); border: var(--bw) solid var(--bc); box-shadow: var(--sh); touch-action: none;
 }
-.side { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 72px; }
+.side { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 68px; flex: none; }
 .lbl { font-size: 11px; font-weight: 700; color: var(--muted); }
 .mini {
   width: 64px; height: 40px; border-radius: 10px;

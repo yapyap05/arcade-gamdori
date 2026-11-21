@@ -80,8 +80,10 @@ function start() {
 </template>
 
 <style scoped>
-.gs { position: relative; display: flex; flex-direction: column; gap: 12px; min-height: 420px; }
-.body { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+/* min-width: 0 → 안의 내용이 길어도 게임 영역이 화면보다 넓어지지 않음 */
+.gs { position: relative; display: flex; flex-direction: column; gap: 12px; min-height: 420px; min-width: 0; max-width: 100%; }
+.body { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.body > :deep(*), .controls > :deep(*) { min-width: 0; max-width: 100%; }
 .controls { display: flex; flex-direction: column; gap: 10px; }
 .toast {
   position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; margin: 0;
@@ -90,10 +92,11 @@ function start() {
 }
 .overlay {
   position: absolute; inset: -4px; z-index: 5; border-radius: var(--r-md);
-  display: grid; place-items: center; padding: 16px; background: var(--scrim);
+  /* 열 너비를 영역에 고정(minmax(0,1fr)) → 긴 선택지 글자 때문에 칸이 넓어져 카드가 치우치지 않음 */
+  display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 16px; background: var(--scrim);
 }
 .card {
-  width: min(320px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  width: min(320px, 100%); min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
   padding: 22px 20px; border-radius: var(--r-lg);
   background: var(--surface); color: var(--text); border: var(--bw) solid var(--bc); box-shadow: var(--sh);
 }
@@ -101,10 +104,11 @@ h2 { margin: 2px 0 0; font-family: var(--font-display); font-weight: var(--displ
 .big { margin: 0; font-size: 40px; line-height: 1.1; }
 .big small { font-size: 16px; margin-left: 2px; color: var(--muted); }
 .sub { margin: 0; font-size: 14px; color: var(--muted); }
-.opt { display: flex; flex-direction: column; gap: 6px; width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); text-align: left; }
-.opt select {
-  height: 44px; padding: 0 12px; border-radius: var(--r-btn2); border: var(--bw) solid var(--bc);
-  background: var(--bg); color: var(--text); font-size: 15px; font-weight: 600;
+/* options 슬롯(게임이 넣는 선택 상자)도 같은 모양으로 */
+.opt, .card :deep(.opt) { display: flex; flex-direction: column; gap: 6px; width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); text-align: left; }
+.opt select, .card :deep(.opt select) {
+  width: 100%; min-width: 0; height: 44px; padding: 0 12px; border-radius: var(--r-btn2); border: var(--bw) solid var(--bc);
+  background: var(--bg); color: var(--text); font-size: 15px; font-weight: 600; text-overflow: ellipsis;
 }
 .start { width: 100%; height: 52px; font-size: 17px; margin-top: 4px; }
 .mode { margin: 0; font-size: 12px; color: var(--muted); }
