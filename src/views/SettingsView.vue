@@ -1,5 +1,8 @@
 <script setup>
+import { ref, onBeforeUnmount } from 'vue'
 import { useThemeStore, THEMES } from '../stores/theme'
+import { shareTo } from '../utils/share'
+import Icon from '../components/Icon.vue'
 import { useAuthStore } from '../stores/auth'
 import { soundOn } from '../games/shared/sfx'
 import { vibrateOn, autoPauseOn } from '../games/shared/prefs'
@@ -8,6 +11,26 @@ const theme = useThemeStore()
 const auth = useAuthStore()
 const logo = `${import.meta.env.BASE_URL}logo.png`
 const set = (r, on) => (r.value = on)
+
+/* ───── 공유 ───── */
+const SHARES = [
+  { id: 'copy', label: '주소 복사', icon: 'link' },
+  { id: 'telegram', label: '텔레그램', icon: 'plane' },
+  { id: 'email', label: '이메일', icon: 'mail' },
+  { id: 'kakao', label: '카카오톡', icon: 'chat' },
+  { id: 'line', label: '라인', icon: 'chatDots' },
+  { id: 'discord', label: '디스코드', icon: 'pad' },
+]
+const notice = ref('')
+let noticeTimer = 0
+async function share(id) {
+  const msg = await shareTo(id)
+  if (!msg) return
+  notice.value = msg
+  clearTimeout(noticeTimer)
+  noticeTimer = setTimeout(() => (notice.value = ''), 2500)
+}
+onBeforeUnmount(() => clearTimeout(noticeTimer))
 </script>
 
 <template>
@@ -64,12 +87,22 @@ const set = (r, on) => (r.value = on)
       </div>
     </div>
 
+    <h2 class="section-label">공유하기</h2>
+    <div class="shares">
+      <button v-for="s in SHARES" :key="s.id" type="button" class="share" @click="share(s.id)">
+        <span class="ico"><Icon :name="s.icon" /></span>
+        <span class="lbl">{{ s.label }}</span>
+      </button>
+    </div>
+
     <div class="about">
       <img :src="logo" alt="" width="56" height="56" class="logo" />
       <span class="name">겜돌이 월드</span>
       <span class="en muted">Gamdori World</span>
       <span v-if="auth.isLocalMode" class="muted small">더미 모드 · 기록은 이 브라우저에만 저장돼요</span>
     </div>
+
+    <p v-if="notice" class="notice" role="status">{{ notice }}</p>
   </div>
 </template>
 
@@ -95,6 +128,22 @@ label.row { cursor: pointer; }
 .switch:disabled { opacity: 0.4; cursor: not-allowed; }
 .link { border: 0; background: none; padding: 0; font-size: 15px; font-weight: 700; }
 .danger { color: var(--danger); }
+.shares { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.share {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px;
+  border-radius: var(--r-md); border: var(--bw) solid var(--opt-bc); background: var(--surface); color: var(--text); box-shadow: var(--sh-sm);
+}
+.share:active { transform: scale(0.97); }
+.share .ico {
+  width: 44px; height: 44px; display: grid; place-items: center; border-radius: 999px;
+  background: var(--surface-2); border: var(--bw) solid var(--bc);
+}
+.share .lbl { font-size: 13px; font-weight: 700; }
+.notice {
+  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+  width: max-content; max-width: min(360px, calc(100vw - 32px)); margin: 0; padding: 10px 16px; border-radius: 999px;
+  background: var(--text); color: var(--bg); font-size: 13px; font-weight: 700; text-align: center;
+}
 .about { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 0 8px; text-align: center; }
 .logo { width: 56px; height: 56px; border-radius: 50%; border: var(--bw) solid var(--bc); margin-bottom: 6px; }
 .name { font-family: var(--font-display); font-weight: var(--display-weight); font-size: 16px; }
