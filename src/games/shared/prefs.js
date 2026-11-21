@@ -17,6 +17,8 @@ function stored(key, fallback = true) {
 export const vibrateOn = stored('gamdori:vibrate')
 /** 앱 전환·화면 잠금 시 자동 일시정지 */
 export const autoPauseOn = stored('gamdori:auto-pause')
+/** 테트리스 데스크탑에서 플로팅 조작부 표시 */
+export const tetrisPadOn = stored('gamdori:tetris-pad')
 
 export function haptic(pattern) {
   if (!vibrateOn.value) return

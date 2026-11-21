@@ -9,12 +9,12 @@ import { useGameCtx } from './context'
  *   repeat : 누르고 있으면 반복 입력 (처음 170ms 뒤부터 50ms 간격)
  *   area   : 버튼 자리 이름 (dpad·float 배치에서 사용)
  *   group  : float 배치에서 'left' | 'right' 묶음
+ *   keys   : 키보드 키 표시 ['Space'] 등 — 마우스를 쓰는 데스크탑에서만 버튼 모서리에 키캡으로 보임
  * layout
  *   grid  : 3열 버튼
  *   dpad  : 십자 (area: up·left·right·down)
  *   float : 게임판 위에 띄우는 반투명 조작부 — 왼쪽 십자(up·left·right·down) + 오른쪽 묶음(hold·ccw·cw)
- *           터치 기기에서만 보이고, 마우스를 쓰는 데스크탑에서는 숨김(키보드 사용)
- *           부모 요소는 position: relative 여야 함
+ *           부모 요소는 position: relative 여야 함 (숨길지는 사용하는 게임이 결정)
  */
 const props = defineProps({
   buttons: { type: Array, required: true },
@@ -67,6 +67,7 @@ onBeforeUnmount(stop)
         @click="onClick($event, b)"
       >
         <Icon :name="b.icon" />
+        <span v-if="b.keys" class="keycap" aria-hidden="true">{{ b.keys.join(' ') }}</span>
       </button>
     </div>
   </div>
@@ -109,8 +110,14 @@ onBeforeUnmount(stop)
 }
 .float .g-right .key { height: 56px; border-radius: 999px; }
 .float .key:active { background: color-mix(in srgb, var(--accent) 80%, transparent); color: var(--accent-text); }
-/* 데스크탑(마우스)에서는 숨김 → 키보드로 조작 */
+/* 키캡: 마우스를 쓰는 데스크탑에서만 */
+.key { position: relative; }
+.keycap {
+  display: none; position: absolute; right: 3px; bottom: 3px; padding: 0 4px; border-radius: 4px;
+  font-family: var(--font-num); font-size: 10px; font-weight: 700; line-height: 15px;
+  background: var(--text); color: var(--bg); pointer-events: none;
+}
 @media (hover: hover) and (pointer: fine) {
-  .float { display: none; }
+  .keycap { display: block; }
 }
 </style>

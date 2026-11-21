@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import GameScreen from '../shared/GameScreen.vue'
 import GamePad from '../shared/GamePad.vue'
 import { useKeys, useLoop } from '../shared/kit'
 import { setupCanvas, useThemeColors } from '../shared/canvas'
 import { sfx } from '../shared/sfx'
+import { tetrisPadOn } from '../shared/prefs'
 import {
   COLS, ROWS, shapeOf, createGame, move as mv, rotate as rot, update, softDrop as soft,
   hardDrop as hard, holdPiece, ghostY, previewTypes,
@@ -95,16 +96,37 @@ useKeys((e) => {
   if (e.repeat && NO_REPEAT.has(name)) return // 누르고 있어도 회전·바로 내리기는 한 번만
   run(name)
 })
-// 터치 기기용 플로팅 조작부 (데스크탑은 숨기고 키보드 사용)
+// 플로팅 조작부. keys 는 데스크탑에서 버튼 모서리에 보이는 키 안내
 const PAD = [
-  { id: 'drop', icon: 'up', label: '바로 내리기', area: 'up' },
-  { id: 'left', icon: 'left', label: '왼쪽', area: 'left', repeat: true },
-  { id: 'right', icon: 'right', label: '오른쪽', area: 'right', repeat: true },
-  { id: 'down', icon: 'down', label: '한 칸 내리기', area: 'down', repeat: true },
-  { id: 'hold', icon: 'swap', label: '홀드', area: 'hold', group: 'right' },
-  { id: 'rotateBack', icon: 'ccw', label: '왼쪽으로 회전', area: 'ccw', group: 'right' },
-  { id: 'rotate', icon: 'cw', label: '오른쪽으로 회전', area: 'cw', group: 'right' },
+  { id: 'drop', icon: 'up', label: '바로 내리기', area: 'up', keys: ['Space'] },
+  { id: 'left', icon: 'left', label: '왼쪽', area: 'left', repeat: true, keys: ['←'] },
+  { id: 'right', icon: 'right', label: '오른쪽', area: 'right', repeat: true, keys: ['→'] },
+  { id: 'down', icon: 'down', label: '한 칸 내리기', area: 'down', repeat: true, keys: ['↓'] },
+  { id: 'hold', icon: 'swap', label: '홀드', area: 'hold', group: 'right', keys: ['C'] },
+  { id: 'rotateBack', icon: 'ccw', label: '왼쪽으로 회전', area: 'ccw', group: 'right', keys: ['Z'] },
+  { id: 'rotate', icon: 'cw', label: '오른쪽으로 회전', area: 'cw', group: 'right', keys: ['↑', 'X'] },
 ]
+// 조작부를 숨겼을 때 보여 줄 키 안내
+const KEY_GUIDE = [
+  { keys: ['←', '→'], text: '이동' },
+  { keys: ['↓'], text: '내리기' },
+  { keys: ['Space'], text: '바로 내리기' },
+  { keys: ['↑', 'X'], text: '회전' },
+  { keys: ['Z'], text: '반대 회전' },
+  { keys: ['C'], text: '홀드' },
+]
+
+// 데스크탑(마우스) 여부 — 데스크탑은 조작부 숨기기를 고를 수 있음, 모바일은 항상 표시
+const desktopMq = window.matchMedia('(hover: hover) and (pointer: fine)')
+const isDesktop = ref(desktopMq.matches)
+const onMq = (e) => (isDesktop.value = e.matches)
+desktopMq.addEventListener?.('change', onMq)
+onBeforeUnmount(() => desktopMq.removeEventListener?.('change', onMq))
+const showPad = computed(() => !isDesktop.value || tetrisPadOn.value)
+function togglePad(e) {
+  tetrisPadOn.value = !tetrisPadOn.value
+  e.currentTarget.blur() // 포커스가 남으면 스페이스(바로 내리기)가 버튼을 다시 누르게 됨
+}
 
 /* ───── 그리기 ───── */
 function cell(c, x, y, color, size, alpha = 1) {
@@ -162,7 +184,7 @@ onMounted(() => {
 <template>
   <GameScreen :status="status" :mode="mode" :score="score" :stats="stats" title="테트리스"
     :summary="`${lines}줄 · 레벨 ${level}`" @start="start" @quit="finish">
-    <div class="play">
+    <div class="play" :class="{ 'with-pad': showPad }">
       <div class="side">
         <span class="lbl">홀드</span>
         <canvas ref="holdEl" class="mini" />
@@ -172,16 +194,36 @@ onMounted(() => {
         <span class="lbl">다음</span>
         <canvas v-for="n in 3" :key="n" ref="nextEls" class="mini" />
       </div>
-      <GamePad :buttons="PAD" layout="float" :disabled="status !== 'playing'" @press="run" />
+      <GamePad v-if="showPad" :buttons="PAD" layout="float" :disabled="status !== 'playing'" @press="run" />
     </div>
+    <template v-if="isDesktop" #controls>
+      <div class="desk">
+        <ul v-if="!showPad" class="guide" aria-label="키보드 조작">
+          <li v-for="g in KEY_GUIDE" :key="g.text"><kbd v-for="k in g.keys" :key="k">{{ k }}</kbd>{{ g.text }}</li>
+        </ul>
+        <button type="button" class="toggle" :aria-pressed="showPad" @click="togglePad($event)">
+          {{ showPad ? '조작 버튼 숨기기' : '조작 버튼 보이기' }}
+        </button>
+      </div>
+    </template>
   </GameScreen>
 </template>
 
 <style scoped>
 .play { position: relative; display: flex; justify-content: center; align-items: flex-start; gap: 8px; }
-/* 터치 기기: 플로팅 조작부가 게임판 아래쪽만 살짝 덮도록 아래 여백 확보 (데스크탑은 조작부를 숨기므로 여백 없음) */
-@media (hover: none), (pointer: coarse) {
-  .play { padding-bottom: 100px; }
+/* 플로팅 조작부가 있으면 게임판 아래쪽만 살짝 덮도록 아래 여백 확보 */
+.play.with-pad { padding-bottom: 100px; }
+.desk { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.guide { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; font-size: 12px; color: var(--muted); }
+.guide li { display: inline-flex; align-items: center; gap: 4px; }
+kbd {
+  min-width: 22px; padding: 1px 6px; border-radius: 5px; text-align: center;
+  font-family: var(--font-num); font-size: 11px; font-weight: 700; color: var(--text);
+  background: var(--surface); border: var(--bw) solid var(--bc); box-shadow: 0 2px 0 var(--bc);
+}
+.toggle {
+  height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  background: transparent; color: var(--muted); border: var(--bw) solid var(--bc);
 }
 .board {
   display: block; width: min(calc(100% - 152px), 32vh, 260px); aspect-ratio: 1 / 2; height: auto;
