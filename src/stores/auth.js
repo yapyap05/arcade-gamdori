@@ -1,32 +1,58 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService } from '../services/authService'
-import { isFirebaseEnabled } from '../services/config'
+import { isFirebaseEnabled, isEmulator } from '../services/config'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
+  const user = ref(null) // { id, email, nickname, needsNickname }
   const ready = ref(false)
   const modalOpen = ref(false)
-  const isLoggedIn = computed(() => !!user.value)
+
+  /** 닉네임까지 정해진 상태 = 랭킹에 참여 가능 */
+  const isLoggedIn = computed(() => !!user.value?.nickname)
+  /** 구글 로그인은 했지만 닉네임을 아직 안 정함 */
+  const needsNickname = computed(() => !!user.value && !user.value.nickname)
+
+  function apply(u) {
+    user.value = u
+    if (u && !u.nickname) modalOpen.value = true // 닉네임 정하기로 바로 안내
+  }
 
   async function init() {
-    user.value = await authService.getUser()
+    try { apply(await authService.getUser()) } catch { user.value = null }
     ready.value = true
-    authService.onChange((u) => { user.value = u; if (u) modalOpen.value = false })
+    authService.onChange((u) => {
+      user.value = u
+      if (u?.nickname) modalOpen.value = false
+    })
   }
-  async function signIn(payload) {
-    const res = await authService.signIn(payload)
-    if (res.user) modalOpen.value = false
-    return res
+
+  async function signInWithGoogle() {
+    const u = await authService.signInWithGoogle()
+    if (!u) return null // 창을 닫음
+    apply(u)
+    if (u.nickname) modalOpen.value = false
+    return u
   }
-  async function verify(payload) {
-    const res = await authService.verify(payload)
-    if (res.user) { user.value = res.user; modalOpen.value = false }
-    return res
+
+  async function registerNickname(nick) {
+    const u = await authService.registerNickname(nick)
+    user.value = u
+    modalOpen.value = false
+    return u
   }
-  const signOut = () => authService.signOut()
+
+  async function signOut() {
+    await authService.signOut()
+    user.value = null
+  }
+
   const openLogin = () => (modalOpen.value = true)
   const closeLogin = () => (modalOpen.value = false)
 
-  return { user, ready, modalOpen, isLoggedIn, isLocalMode: !isFirebaseEnabled, init, signIn, verify, signOut, openLogin, closeLogin }
+  return {
+    user, ready, modalOpen, isLoggedIn, needsNickname,
+    isLocalMode: !isFirebaseEnabled, isEmulator,
+    init, signInWithGoogle, registerNickname, signOut, openLogin, closeLogin,
+  }
 })

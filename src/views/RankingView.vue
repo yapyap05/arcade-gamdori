@@ -26,7 +26,7 @@ const mode = ref('competitive')
       <button role="tab" :aria-selected="mode === 'competitive'" :class="{ on: mode === 'competitive' }" @click="mode = 'competitive'">경쟁</button>
     </div>
 
-    <Leaderboard :game-id="gameId" :mode="mode" :limit="50" variant="podium" />
+    <Leaderboard :game-id="gameId" :mode="mode" :limit="20" :max="100" variant="podium" />
   </div>
 </template>
 

@@ -95,8 +95,10 @@ async function onGameOver({ score, meta }) {
     await scoreService.submit({ user: auth.user, gameId: game.value.id, score, mode: mode.value, meta })
     message.value = `${score.toLocaleString()}점 저장 완료!${isBest ? ' 내 최고 기록이에요.' : ''}`
     refreshKey.value++
-  } catch {
-    message.value = '기록 저장에 실패했어요. 네트워크를 확인해 주세요.'
+  } catch (e) {
+    message.value = e?.reason === 'rejected'
+      ? '기록할 수 없는 점수예요. (너무 자주 저장했거나 허용 범위를 넘었어요)'
+      : '기록 저장에 실패했어요. 네트워크를 확인해 주세요.'
   }
 }
 

@@ -6,7 +6,8 @@ import { useAuthStore } from '../stores/auth'
 const props = defineProps({
   gameId: { type: String, required: true },
   mode: { type: String, default: 'competitive' },
-  limit: { type: Number, default: 10 },
+  limit: { type: Number, default: 10 }, // 처음 보여 줄 인원
+  max: { type: Number, default: 0 }, // 0보다 크면 '더 보기'로 이 인원까지 (limit 단위로 늘어남)
   refreshKey: { type: Number, default: 0 },
   variant: { type: String, default: 'list' }, // 'podium' = 1~3위 시상대 + 목록 + 내 순위 바 / 'list' = 간단 목록
 })
@@ -15,6 +16,8 @@ const rows = ref([])
 const mine = ref(null) // { rank, score }
 const loading = ref(false)
 const failed = ref(false)
+const shown = ref(props.limit)
+const canMore = computed(() => props.max > shown.value && rows.value.length >= shown.value)
 
 // 게임·모드를 빠르게 바꿔도 마지막 요청 결과만 반영
 let seq = 0
@@ -23,8 +26,8 @@ async function load() {
   loading.value = true
   failed.value = false
   try {
-    const top = await scoreService.top({ gameId: props.gameId, mode: props.mode, limit: props.limit })
-    const rank = auth.user
+    const top = await scoreService.top({ gameId: props.gameId, mode: props.mode, limit: shown.value })
+    const rank = auth.isLoggedIn
       ? await scoreService.myRank({ userId: auth.user.id, gameId: props.gameId, mode: props.mode }).catch(() => null)
       : null
     if (my !== seq) return
@@ -36,7 +39,9 @@ async function load() {
     if (my === seq) loading.value = false
   }
 }
-watch(() => [props.gameId, props.mode, props.refreshKey, auth.user?.id], load, { immediate: true })
+watch(() => [props.gameId, props.mode], () => (shown.value = props.limit))
+watch(() => [props.gameId, props.mode, props.refreshKey, auth.user?.id, auth.isLoggedIn, shown.value], load, { immediate: true })
+const more = () => (shown.value = Math.min(props.max, shown.value + props.limit))
 
 const podium = computed(() => {
   if (props.variant !== 'podium') return []
@@ -73,6 +78,7 @@ const isMe = (r) => r.userId === auth.user?.id
           <span class="num">{{ r.score.toLocaleString() }}</span>
         </li>
       </ol>
+      <button v-if="canMore" type="button" class="more" :disabled="loading" @click="more">{{ loading ? '불러오는 중…' : '더 보기' }}</button>
     </template>
 
     <div v-if="mine" class="mine">
@@ -88,6 +94,10 @@ const isMe = (r) => r.userId === auth.user?.id
 
 <style scoped>
 .lb { display: flex; flex-direction: column; gap: 14px; }
+.more {
+  align-self: center; height: 40px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 700;
+  background: var(--surface); color: var(--text); border: var(--bw) solid var(--bc); box-shadow: var(--sh-sm);
+}
 .state { margin: 8px 0; font-size: 14px; text-align: center; }
 
 .podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }

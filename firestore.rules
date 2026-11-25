@@ -1,41 +1,95 @@
 rules_version = '2';
+// 겜돌이 월드 Firestore 보안 규칙
+// 적용: firebase deploy --only firestore:rules --project <프로젝트ID>   (docs/firebase-setup.md 참고)
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 프로필: 누구나 읽기, 본인만 생성/수정 (닉네임 2~12자)
+    function signedIn() { return request.auth != null; }
+
+    // 닉네임 규칙 — src/services/nickname.js 의 NICK_RULE 과 같게 유지
+    function validNick(n) { return n is string && n.matches('^[가-힣a-zA-Z0-9_]{2,12}$'); }
+
+    // 랭킹 보드별 점수 상한 — src/games/scoreLimits.js 와 같게 유지
+    // 보드 이름 = {게임ID}_{모드}. 여기 없는 보드에는 쓸 수 없음
+    function maxScores() {
+      return {
+        '2048_casual': 5000000,
+        '2048_competitive': 5000000,
+        'tetris_casual': 9999999,
+        'tetris_competitive': 9999999,
+        'multi-calc_casual': 20000,
+        'multi-calc_competitive': 20000,
+        'word-memory_casual': 20000,
+        'word-memory_competitive': 20000,
+        'speed-typing_casual': 20000,
+        'speed-typing_competitive': 20000,
+        'sudoku_casual': 3000,
+        'sudoku_competitive': 3000,
+        'weight-compare_casual': 10000,
+        'weight-compare_competitive': 10000,
+        'stroop_casual': 200000,
+        'stroop_competitive': 200000,
+        'pipe_casual': 2000000,
+        'pipe_competitive': 2000000,
+        'block-breaker_casual': 5000000,
+        'block-breaker_competitive': 5000000,
+        'color-link_casual': 2000000,
+        'color-link_competitive': 2000000,
+        'doodle-physics_casual': 20000,
+        'doodle-physics_competitive': 20000,
+        'snake_casual': 200000,
+        'snake_competitive': 200000,
+        'whack-mole_casual': 2000000,
+        'whack-mole_competitive': 2000000,
+        'novel-typing_casual': 200000,
+        'novel-typing_competitive': 200000
+      };
+    }
+
+    // ───── 프로필: 계정당 한 번, 닉네임 예약 문서와 같은 트랜잭션에서만 생성 ─────
     match /profiles/{uid} {
       allow read: if true;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.nickname is string
-        && request.resource.data.nickname.size() >= 2
-        && request.resource.data.nickname.size() <= 12;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nickname', 'createdAt'])
+        && validNick(request.resource.data.nickname)
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/nicknames/$(request.resource.data.nickname.lower())).data.uid == uid;
+      allow update, delete: if false; // 닉네임 변경 불가 (사칭 방지)
     }
 
-    // 닉네임 중복 방지용 예약 문서
+    // ───── 닉네임 예약: 문서 ID = 소문자 닉네임. 한 계정에 하나, 먼저 정한 사람이 주인 ─────
     match /nicknames/{name} {
       allow read: if true;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.nickname.lower() == name;
+      allow update, delete: if false;
     }
 
-    // 랭킹: 게임/모드별 보드, 유저당 최고점 1건. 누구나 읽기, 본인 문서만 "더 높은 점수로" 갱신
+    // ───── 랭킹: leaderboards/{보드}/entries/{uid} = 유저별 최고점 1건 ─────
+    function validEntry(board, uid) {
+      let d = request.resource.data;
+      let limits = maxScores();
+      return signedIn() && request.auth.uid == uid
+        && board in limits
+        && d.keys().hasOnly(['uid', 'nickname', 'score', 'meta', 'updatedAt'])
+        && d.uid == uid
+        && d.score is int && d.score > 0 && d.score <= limits[board]
+        && d.updatedAt == request.time
+        && (!('meta' in d) || (d.meta is map && d.meta.size() <= 12))
+        && d.nickname == get(/databases/$(database)/documents/profiles/$(uid)).data.nickname;
+    }
+
     match /leaderboards/{board}/entries/{uid} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.uid == uid
-        && request.resource.data.score is int
-        && request.resource.data.score >= 0
-        && request.resource.data.score <= 10000000
-        && request.resource.data.nickname == get(/databases/$(database)/documents/profiles/$(uid)).data.nickname;
-      allow update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.uid == uid
-        && request.resource.data.score is int
+      allow create: if validEntry(board, uid);
+      // 더 높은 점수로만, 같은 사람은 10초에 한 번까지만 갱신
+      allow update: if validEntry(board, uid)
         && request.resource.data.score > resource.data.score
-        && request.resource.data.score <= 10000000
-        && request.resource.data.nickname == get(/databases/$(database)/documents/profiles/$(uid)).data.nickname;
+        && request.time > resource.data.updatedAt + duration.value(10, 's');
+      allow delete: if false;
     }
   }
 }
-
-// TODO(경쟁 모드 정식 오픈 시): 클라이언트가 점수를 직접 쓰면 조작이 가능합니다.
-//   Cloud Functions(callable)에서 점수를 검증한 뒤 저장하도록 바꾸고, 위 create/update 규칙은 닫으세요.

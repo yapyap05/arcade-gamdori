@@ -73,3 +73,13 @@ export async function shareTo(kind) {
       return ''
   }
 }
+
+/** 임의 문구 공유 (운세 결과 등): 모바일은 기기 공유창, 아니면 문구+주소 복사. 안내 문구 반환 */
+export async function shareText(text) {
+  if (navigator.share) {
+    try { await navigator.share({ title: SHARE_TITLE, text, url: SHARE_URL }) } catch {}
+    return ''
+  }
+  return (await copyText(`${text}
+${SHARE_URL}`)) ? '결과를 복사했어요. 원하는 곳에 붙여넣어 주세요' : FAIL
+}

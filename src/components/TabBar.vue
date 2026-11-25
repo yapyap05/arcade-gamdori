@@ -5,6 +5,7 @@ const TABS = [
   { to: '/', name: 'home', icon: 'home', label: '홈' },
   { to: '/ranking', name: 'ranking', icon: 'rank', label: '랭킹' },
   { to: '/records', name: 'records', icon: 'rec', label: '기록' },
+  { to: '/fortune', name: 'fortune', icon: 'fortune', label: '운세' },
   { to: '/settings', name: 'settings', icon: 'set', label: '설정' },
 ]
 </script>

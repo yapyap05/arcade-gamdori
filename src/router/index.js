@@ -8,6 +8,8 @@ export default createRouter({
     { path: '/game/:id', name: 'game', component: () => import('../views/GameView.vue'), props: true },
     { path: '/ranking', name: 'ranking', component: () => import('../views/RankingView.vue'), meta: { tabs: true } },
     { path: '/records', name: 'records', component: () => import('../views/RecordsView.vue'), meta: { tabs: true } },
+    { path: '/fortune', name: 'fortune', component: () => import('../views/FortuneView.vue'), meta: { tabs: true } },
+    { path: '/fortune/:id', name: 'fortune-detail', component: () => import('../views/FortuneDetailView.vue'), props: true },
     { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue'), meta: { tabs: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

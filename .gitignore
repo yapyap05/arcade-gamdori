@@ -51,6 +51,7 @@ serviceAccountKey.json
 firestore.rules.backup
 firebase-export-*/
 firebase-config.local.*
+.emulator-data/
 
 # Firebase CLI deployment token
 .firebaserc

@@ -1,24 +1,27 @@
 /**
  * Firebase 설정
  *
- * Firebase 가입 → 프로젝트 생성 → 웹 앱 추가 후 나오는 firebaseConfig 값을
- *   A) 프로젝트 루트의 .env.local 에 VITE_FIREBASE_* 로 넣거나  (권장)
- *   B) 아래 'YOUR_...' 자리에 직접 붙여 넣으세요.
- *
- * 값이 비어 있거나 YOUR_ 로 시작하면 자동으로 "더미 모드"(src/services/mock, localStorage)로 동작합니다.
- * 설정만 채우면 코드 수정 없이 실제 Firebase(로그인 + Firestore 랭킹)로 전환됩니다.
+ * 1) 에뮬레이터(내 PC 연습용):  npm run emulators  →  npm run dev:emu
+ *    실제 키 없이 연습용 프로젝트 'demo-gamdori' 로 동작 (데이터는 내 PC 에만)
+ * 2) 실제 Firebase: 프로젝트 루트 .env.local 에 VITE_FIREBASE_* 값 입력 (docs/firebase-setup.md 참고)
+ * 3) 둘 다 아니면 "더미 모드"(src/services/mock, 이 브라우저 localStorage)로 동작
  */
 const env = import.meta.env
 
-export const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY || 'YOUR_API_KEY',
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'YOUR_PROJECT_ID.firebaseapp.com',
-  projectId: env.VITE_FIREBASE_PROJECT_ID || 'YOUR_PROJECT_ID',
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || 'YOUR_SENDER_ID',
-  appId: env.VITE_FIREBASE_APP_ID || 'YOUR_APP_ID',
-}
+/** npm run dev:emu (vite --mode emulator) 로 실행했을 때 */
+export const isEmulator = env.MODE === 'emulator'
+
+export const firebaseConfig = isEmulator
+  ? { apiKey: 'demo-key', authDomain: 'demo-gamdori.firebaseapp.com', projectId: 'demo-gamdori', appId: 'demo-app' }
+  : {
+      apiKey: env.VITE_FIREBASE_API_KEY || 'YOUR_API_KEY',
+      authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'YOUR_PROJECT_ID.firebaseapp.com',
+      projectId: env.VITE_FIREBASE_PROJECT_ID || 'YOUR_PROJECT_ID',
+      storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'YOUR_PROJECT_ID.appspot.com',
+      messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || 'YOUR_SENDER_ID',
+      appId: env.VITE_FIREBASE_APP_ID || 'YOUR_APP_ID',
+    }
 
 const filled = (v) => typeof v === 'string' && v.trim() !== '' && !v.startsWith('YOUR_')
 
-export const isFirebaseEnabled = ['apiKey', 'projectId', 'appId'].every((k) => filled(firebaseConfig[k]))
+export const isFirebaseEnabled = isEmulator || ['apiKey', 'projectId', 'appId'].every((k) => filled(firebaseConfig[k]))
