@@ -3,6 +3,7 @@ import { ref, onBeforeUnmount } from 'vue'
 import { useThemeStore, THEMES } from '../stores/theme'
 import { shareTo } from '../utils/share'
 import Icon from '../components/Icon.vue'
+import appVersion from '../../.version?raw' // 프로젝트 루트 .version (커밋·푸시할 때마다 올림)
 import { useAuthStore } from '../stores/auth'
 import { soundOn } from '../games/shared/sfx'
 import { vibrateOn, autoPauseOn } from '../games/shared/prefs'
@@ -10,6 +11,14 @@ import { vibrateOn, autoPauseOn } from '../games/shared/prefs'
 const theme = useThemeStore()
 const auth = useAuthStore()
 const logo = `${import.meta.env.BASE_URL}logo.png`
+const version = appVersion.trim()
+
+// 개발자에게 메일 보내기 (화면에는 주소를 보여 주지 않음)
+function contactDev() {
+  const to = ['kuni5458', 'naver.com'].join('@')
+  const subject = encodeURIComponent(`[겜돌이 월드 ${version}] 문의`)
+  location.href = `mailto:${to}?subject=${subject}`
+}
 const set = (r, on) => (r.value = on)
 
 /* ───── 공유 ───── */
@@ -98,8 +107,9 @@ onBeforeUnmount(() => clearTimeout(noticeTimer))
     <div class="about">
       <img :src="logo" alt="" width="56" height="56" class="logo" />
       <span class="name">겜돌이 월드</span>
-      <span class="en muted">Gamdori World</span>
-      <span v-if="auth.isLocalMode" class="muted small">더미 모드 · 기록은 이 브라우저에만 저장돼요</span>
+      <span class="en muted">Gamdori World · <span class="num">{{ version }}</span></span>
+      <span v-if="auth.isLocalMode" class="muted small">오프라인 모드 · 기록은 이 브라우저에만 저장돼요</span>
+      <button type="button" class="btn btn-sm contact" @click="contactDev"><Icon name="mail" /> 개발자에게 연락하기</button>
     </div>
 
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
@@ -149,4 +159,6 @@ label.row { cursor: pointer; }
 .name { font-family: var(--font-display); font-weight: var(--display-weight); font-size: 16px; }
 .en { font-family: var(--font-num); font-size: 12px; }
 .small { font-size: 12px; margin-top: 6px; }
+.contact { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; }
+.contact :deep(svg) { width: 18px; height: 18px; }
 </style>

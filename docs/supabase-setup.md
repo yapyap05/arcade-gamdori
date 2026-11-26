@@ -1,10 +1,10 @@
 # 겜돌이 월드 Supabase 설정 안내
 
-로그인(구글)과 랭킹을 켜는 방법이에요. **Free 플랜**으로 충분해요.
+로그인(이메일)과 랭킹을 켜는 방법이에요. **Free 플랜**으로 충분해요.
 
 | 모드 | 실행 | 데이터 |
 |---|---|---|
-| 더미 | `.env.local` 없이 `npm run dev` | 이 브라우저 localStorage |
+| 오프라인 | `.env.local` 없이 `npm run dev` | 이 브라우저 localStorage |
 | 실제 Supabase | `.env.local` 작성 후 `npm run dev` | Supabase 클라우드 |
 
 > Free 플랜은 업그레이드하지 않으면 요금이 나오지 않아요.
@@ -34,30 +34,15 @@
 
 > 점수 상한(`src/games/scoreLimits.js`)을 바꾸거나 게임을 추가하면 schema.sql 의 상한 목록도 고친 뒤 다시 Run 하세요. 여러 번 실행해도 안전해요.
 
-## 3. 구글 로그인 켜기
+## 3. 이메일 로그인 켜기
 
-### 3-1. Google Cloud 에서 OAuth 클라이언트 만들기
-1. https://console.cloud.google.com → 새 프로젝트(예: gamdori)
-2. **APIs & Services → OAuth consent screen**: User type `External`, 앱 이름 `겜돌이 월드`, 지원 이메일 입력 → 저장
-   - 테스트 중에는 *Test users* 에 내 구글 계정 추가. 누구나 쓰게 하려면 **Publish app**
-3. **Credentials → Create credentials → OAuth client ID**
-   - Application type: `Web application`
-   - Authorized JavaScript origins: `https://gamdori.onrender.com`, `http://localhost:5173`
-   - Authorized redirect URIs: `https://<프로젝트ref>.supabase.co/auth/v1/callback`
-     (Supabase → Authentication → Sign In / Providers → Google 화면에 정확한 주소가 나와요)
-4. 만들어진 **Client ID**, **Client secret** 을 복사
+**Authentication → Sign In / Providers → Email**
+- Enable Email provider: **켜기**
+- **Confirm email: 끄기** (켜 두면 가입 때 인증 메일이 필요해요. 무료 기본 메일은 시간당 몇 통만 보내져서 가입이 막혀요)
+- Minimum password length: 6 (기본값)
 
-### 3-2. Supabase 에 넣기
-1. **Authentication → Sign In / Providers → Google** → Enable
-2. Client ID, Client secret 붙여 넣고 Save
-
-### 3-3. 돌아올 주소 허용
-**Authentication → URL Configuration**
-- Site URL: `https://gamdori.onrender.com`
-- Redirect URLs (Add URL):
-  - `https://gamdori.onrender.com/**`
-  - `http://localhost:5173/**`
-  - (같은 Wi-Fi 휴대폰으로 테스트하면) `http://<내 PC IP>:5173/**`
+> 앱은 이메일 · 닉네임 · 비밀번호로 가입하고 바로 로그인해요. 비밀번호 찾기는 없어요.
+> 비밀번호를 잊은 사용자는 대시보드 **Authentication → Users** 에서 직접 지우거나 비밀번호를 바꿔 줄 수 있어요.
 
 ## 4. 앱에 연결
 
@@ -104,7 +89,7 @@ select board, nickname, score, updated_at from public.scores order by board, sco
 
 | 증상 | 확인할 것 |
 |---|---|
-| 로그인 후 `redirect_uri_mismatch` | 3-1 의 Authorized redirect URIs 가 Supabase 콜백 주소와 같은지 |
-| 로그인 후 다른 주소로 감 / 돌아오지 않음 | 3-3 의 Redirect URLs 에 지금 주소가 있는지 |
+| 가입 후 "가입 메일을 확인해 주세요" | 3 의 Confirm email 이 꺼져 있는지 |
+| "이메일 또는 비밀번호가 맞지 않아요" | 가입한 이메일인지, 비밀번호 대소문자 |
 | 랭킹 저장 시 "기록할 수 없는 점수" | 10초 안에 다시 저장했거나, 상한을 넘었거나, board_limits 에 그 게임이 없음 |
-| 화면에 "더미 모드" 표시 | `.env.local` 위치(프로젝트 루트)·이름, 그리고 dev 서버를 다시 켰는지 |
+| 화면에 "오프라인 모드" 표시 | `.env.local` 위치(프로젝트 루트)·이름, 그리고 dev 서버를 다시 켰는지 |

@@ -1,4 +1,4 @@
-// 더미 랭킹: Supabase scores 표(보드 '{게임}_{모드}' × 유저별 최고점 1건)와 같은 의미로 localStorage에 저장.
+// 오프라인 모드 랭킹: Supabase scores 표(보드 '{게임}_{모드}' × 유저별 최고점 1건)와 같은 의미로 localStorage에 저장.
 const KEY = 'gamdori:mock-boards'
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {} } catch { return {} } }
 const board = (gameId, mode) => `${gameId}_${mode}`

@@ -1,60 +1,93 @@
 import { getSupabase } from './client'
-import { rememberReturn, takePendingCode } from './redirect'
 import { NICK_RULE } from '../nickname'
 
 /**
- * Supabase 로그인 (구글)
- *  - 구글 화면으로 이동했다가 돌아오는 방식 → 돌아오면 getUser() 에서 세션 완성
- *  - 로그인만으로는 아무것도 쓰지 않음. 첫 로그인이면 needsNickname: true → registerNickname()
+ * Supabase 로그인 (이메일 + 비밀번호)
+ *  - 회원가입: 닉네임 중복 확인 → 계정 생성 → 프로필(닉네임) 저장 → 바로 로그인
+ *    (Supabase 설정에서 Confirm email 을 꺼야 바로 로그인됨)
+ *  - 닉네임 저장만 실패한 계정은 로그인 때 가입 시 닉네임으로 다시 시도, 그래도 없으면 needsNickname
  * user = { id, email, nickname, needsNickname }
  */
+const NICK_MSG = '닉네임은 2~12자의 한글·영문·숫자·_ 만 쓸 수 있어요.'
+const DUP_NICK = '이미 쓰는 닉네임이에요. 다른 닉네임을 입력해 주세요.'
+
+function authError(e) {
+  const m = (e?.message || '').toLowerCase()
+  if (m.includes('invalid login credentials')) return new Error('이메일 또는 비밀번호가 맞지 않아요.')
+  if (m.includes('already registered') || m.includes('already exists')) return new Error('이미 가입한 이메일이에요. 로그인해 주세요.')
+  if (m.includes('password')) return new Error('비밀번호는 6자 이상으로 입력해 주세요.')
+  if (m.includes('email not confirmed')) return new Error('메일 인증이 필요해요. Supabase 설정에서 Confirm email 을 꺼 주세요.')
+  if (m.includes('invalid') && m.includes('email')) return new Error('이메일 주소를 다시 확인해 주세요.')
+  if (m.includes('rate limit') || e?.status === 429) return new Error('요청이 너무 많아요. 잠시 후 다시 시도해 주세요.')
+  return new Error('로그인하지 못했어요. 잠시 후 다시 시도해 주세요.')
+}
+
+async function insertProfile(sb, id, nick) {
+  const { error } = await sb.from('profiles').insert({ id, nickname: nick })
+  if (!error) return
+  if (error.code === '23505') throw new Error(error.message.includes('profiles_pkey') ? '이미 닉네임을 정했어요.' : DUP_NICK)
+  if (error.code === '23514') throw new Error(NICK_MSG)
+  throw new Error('닉네임을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
+}
+
 async function loadProfile(sb, sbUser) {
   if (!sbUser) return null
   const { data, error } = await sb.from('profiles').select('nickname').eq('id', sbUser.id).maybeSingle()
   if (error) throw error
-  const nickname = data?.nickname ?? null
+  let nickname = data?.nickname ?? null
+  // 가입 때 닉네임 저장이 실패했으면 한 번 더 시도
+  const wanted = sbUser.user_metadata?.nickname
+  if (!nickname && wanted && NICK_RULE.test(wanted)) {
+    try {
+      await insertProfile(sb, sbUser.id, wanted)
+      nickname = wanted
+    } catch {
+      // 다른 탭·로그인 이벤트가 먼저 저장했을 수 있음 → 다시 읽고, 그래도 없으면 닉네임 정하기 창으로
+      const { data: again } = await sb.from('profiles').select('nickname').eq('id', sbUser.id).maybeSingle()
+      nickname = again?.nickname ?? null
+    }
+  }
   return { id: sbUser.id, email: sbUser.email, nickname, needsNickname: !nickname }
 }
 
 export const supabaseAuth = {
   async getUser() {
     const sb = await getSupabase()
-    const code = takePendingCode()
-    if (code) {
-      const { error } = await sb.auth.exchangeCodeForSession(code)
-      if (error) console.warn('[gamdori] 로그인 마무리 실패', error.message)
-    }
     const { data } = await sb.auth.getSession()
     return loadProfile(sb, data.session?.user)
   },
 
-  async signInWithGoogle() {
+  async signUp({ email, password, nickname }) {
+    const nick = nickname.trim()
+    if (!NICK_RULE.test(nick)) throw new Error(NICK_MSG)
     const sb = await getSupabase()
-    rememberReturn()
-    const { error } = await sb.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: location.origin + location.pathname },
-    })
-    if (error) throw new Error('로그인 화면을 열지 못했어요. 잠시 후 다시 시도해 주세요.')
-    return new Promise(() => {}) // 곧 구글 화면으로 이동
+    const { data: ok, error: e1 } = await sb.rpc('nickname_available', { p_nickname: nick })
+    if (e1) throw new Error('닉네임을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    if (!ok) throw new Error(DUP_NICK)
+    const { data, error } = await sb.auth.signUp({ email: email.trim(), password, options: { data: { nickname: nick } } })
+    if (error) throw authError(error)
+    // 이미 가입한 이메일이면 identities 가 비어서 옴
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error('이미 가입한 이메일이에요. 로그인해 주세요.')
+    if (!data.session) throw new Error('가입 메일을 확인해 주세요. (Supabase 설정에서 Confirm email 을 끄면 바로 로그인돼요)')
+    return loadProfile(sb, data.session.user)
   },
 
-  /** 닉네임 등록 + 프로필 생성 (한 계정에 한 번) */
+  async signIn({ email, password }) {
+    const sb = await getSupabase()
+    const { data, error } = await sb.auth.signInWithPassword({ email: email.trim(), password })
+    if (error) throw authError(error)
+    return loadProfile(sb, data.user)
+  },
+
+  /** 닉네임 등록 (닉네임 없이 남은 계정용) */
   async registerNickname(nickname) {
     const nick = nickname.trim()
-    if (!NICK_RULE.test(nick)) throw new Error('닉네임은 2~12자의 한글·영문·숫자·_ 만 쓸 수 있어요.')
+    if (!NICK_RULE.test(nick)) throw new Error(NICK_MSG)
     const sb = await getSupabase()
     const { data } = await sb.auth.getSession()
     const u = data.session?.user
     if (!u) throw new Error('먼저 로그인해 주세요.')
-    const { error } = await sb.from('profiles').insert({ id: u.id, nickname: nick })
-    if (error) {
-      if (error.code === '23505') {
-        throw new Error(error.message.includes('profiles_pkey') ? '이미 닉네임을 정했어요.' : '이미 쓰는 닉네임이에요. 다른 닉네임을 입력해 주세요.')
-      }
-      if (error.code === '23514') throw new Error('닉네임은 2~12자의 한글·영문·숫자·_ 만 쓸 수 있어요.')
-      throw new Error('닉네임을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
-    }
+    await insertProfile(sb, u.id, nick)
     return { id: u.id, email: u.email, nickname: nick, needsNickname: false }
   },
 

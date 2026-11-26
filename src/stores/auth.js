@@ -10,7 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** 닉네임까지 정해진 상태 = 랭킹에 참여 가능 */
   const isLoggedIn = computed(() => !!user.value?.nickname)
-  /** 구글 로그인은 했지만 닉네임을 아직 안 정함 */
+  /** 로그인은 했지만 닉네임이 없음 (가입 때 닉네임 저장이 실패한 경우) */
   const needsNickname = computed(() => !!user.value && !user.value.nickname)
 
   function apply(u) {
@@ -27,13 +27,13 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  async function signInWithGoogle() {
-    const u = await authService.signInWithGoogle()
-    if (!u) return null // 창을 닫음
+  async function finish(u) {
     apply(u)
-    if (u.nickname) modalOpen.value = false
+    if (u?.nickname) modalOpen.value = false
     return u
   }
+  const signIn = async (form) => finish(await authService.signIn(form))
+  const signUp = async (form) => finish(await authService.signUp(form))
 
   async function registerNickname(nick) {
     const u = await authService.registerNickname(nick)
@@ -53,6 +53,6 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user, ready, modalOpen, isLoggedIn, needsNickname,
     isLocalMode: !isSupabaseEnabled,
-    init, signInWithGoogle, registerNickname, signOut, openLogin, closeLogin,
+    init, signIn, signUp, registerNickname, signOut, openLogin, closeLogin,
   }
 })

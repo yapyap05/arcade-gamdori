@@ -2,7 +2,7 @@
 -- 겜돌이 월드 Supabase 스키마
 -- 대시보드 → SQL Editor 에 통째로 붙여 넣고 Run (여러 번 실행해도 안전)
 --
---  profiles      : 닉네임 (한 계정에 한 번, 대소문자 구분 없이 중복 불가)
+--  profiles      : 닉네임 (이메일 회원가입 때 한 번, 대소문자 구분 없이 중복 불가)
 --  board_limits  : 보드별 점수 상한 (src/games/scoreLimits.js 와 같은 값 유지)
 --  scores        : 보드·유저별 최고점 1건. 누구나 읽기, 쓰기는 submit_score() 로만
 -- ═══════════════════════════════════════════════════════════════
@@ -132,6 +132,21 @@ as $$
 $$;
 revoke all on function public.board_counts() from public;
 grant execute on function public.board_counts() to anon, authenticated;
+
+-- ───── 닉네임 사용 가능 여부 (회원가입 전에 확인, 로그인 전에도 호출 가능) ─────
+-- profiles 는 본인 행만 읽을 수 있어서, 이 함수가 대신 존재 여부만 알려 줌
+create or replace function public.nickname_available(p_nickname text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_nickname ~ '^[가-힣a-zA-Z0-9_]{2,12}$'
+     and not exists (select 1 from public.profiles where lower(nickname) = lower(p_nickname));
+$$;
+revoke all on function public.nickname_available(text) from public;
+grant execute on function public.nickname_available(text) to anon, authenticated;
 
 -- ───── 보드별 점수 상한 (src/games/scoreLimits.js 와 같게) ─────
 insert into public.board_limits (board, max_score)

@@ -5,7 +5,7 @@
  *      VITE_SUPABASE_URL=https://<프로젝트ref>.supabase.co
  *      VITE_SUPABASE_ANON_KEY=<공개용 키 (anon 또는 publishable)>
  *    ⚠ service_role / secret 키는 절대 넣지 않아요.
- * 2) 값이 없으면 "더미 모드"(src/services/mock, 이 브라우저 localStorage)로 동작
+ * 2) 값이 없으면 "오프라인 모드"(src/services/mock, 이 브라우저 localStorage)로 동작
  */
 const env = import.meta.env
 

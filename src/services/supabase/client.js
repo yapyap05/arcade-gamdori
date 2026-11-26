@@ -1,7 +1,7 @@
 import { supabaseUrl, supabaseKey } from '../config'
 
 let cached
-/** Supabase SDK를 처음 쓸 때만 불러온다 → 더미 모드에서는 번들에 영향 없음 */
+/** Supabase SDK를 처음 쓸 때만 불러온다 → 오프라인 모드에서는 번들에 영향 없음 */
 export function getSupabase() {
   cached ||= import('@supabase/supabase-js').then(({ createClient }) =>
     createClient(supabaseUrl, supabaseKey, {
