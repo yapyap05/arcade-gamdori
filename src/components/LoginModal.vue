@@ -70,10 +70,10 @@ async function close() {
               <path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8z" />
               <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z" />
             </svg>
-            {{ loading ? '로그인 중…' : 'Google로 계속하기' }}
+            {{ loading ? (auth.isLocalMode ? '로그인 중…' : '구글로 이동 중…') : 'Google로 계속하기' }}
           </button>
           <p v-if="auth.isLocalMode" class="note muted">더미 모드: 실제 구글 계정 없이 이 브라우저에만 저장돼요</p>
-          <p v-else-if="auth.isEmulator" class="note muted">에뮬레이터 모드: 연습용 계정으로 로그인해요</p>
+          <p v-else class="note muted">구글 로그인 후 보던 화면으로 돌아와요</p>
         </template>
 
         <form v-else class="nick" @submit.prevent="saveNickname">

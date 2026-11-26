@@ -6,6 +6,7 @@ export const CATEGORIES = [
   { id: 'brain', label: '두뇌' },
   { id: 'arcade', label: '아케이드' },
   { id: 'typing', label: '타자' },
+  { id: 'card', label: '카드' },
 ]
 
 /**
@@ -36,6 +37,8 @@ export const games = [
   game({ id: 'snake', title: '스네이크러시', desc: '먹을수록 길어지고 빨라져요', category: 'arcade', isNew: true, pausable: true, load: () => import('./snake/SnakeGame.vue') }),
   game({ id: 'whack-mole', title: '나오지마라고', desc: '폭탄은 피하고 두더지만 쾅!', category: 'arcade', isNew: true, pausable: true, load: () => import('./mole/MoleGame.vue') }),
   game({ id: 'novel-typing', title: '프로타자머신', desc: '단편 문학 타자 연습', category: 'typing', pausable: true, load: () => import('./novel/NovelTypingGame.vue') }),
+  game({ id: 'seotda', title: '섯다', desc: '1,000 Gam으로 100,000 Gam 만들기', category: 'card', isNew: true, load: () => import('./seotda/SeotdaGame.vue') }),
+  game({ id: 'gostop', title: '고스톱', desc: '맞고·3인 · 1,000 Gam으로 100,000 Gam 만들기', category: 'card', isNew: true, load: () => import('./gostop/GostopGame.vue') }),
 ]
 
 export const getGame = (id) => games.find((g) => g.id === id)

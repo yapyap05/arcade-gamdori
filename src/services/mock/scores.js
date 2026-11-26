@@ -1,4 +1,4 @@
-// 더미 랭킹: Firestore 'leaderboards/{게임}_{모드}/entries/{uid}' 구조와 같은 의미로 localStorage에 저장.
+// 더미 랭킹: Supabase scores 표(보드 '{게임}_{모드}' × 유저별 최고점 1건)와 같은 의미로 localStorage에 저장.
 const KEY = 'gamdori:mock-boards'
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {} } catch { return {} } }
 const board = (gameId, mode) => `${gameId}_${mode}`
@@ -14,6 +14,15 @@ export const mockScores = {
   async top({ gameId, mode, limit = 20 }) {
     const b = read()[board(gameId, mode)] || {}
     return Object.values(b).sort((a, c) => c.score - a.score).slice(0, limit)
+  },
+  // 게임별 랭킹 기록 수 (캐주얼 + 경쟁) → { gameId: n }
+  async counts() {
+    const out = {}
+    Object.entries(read()).forEach(([b, rows]) => {
+      const gameId = b.replace(/_(casual|competitive)$/, '')
+      out[gameId] = (out[gameId] ?? 0) + Object.keys(rows).length
+    })
+    return out
   },
   async myRank({ userId, gameId, mode }) {
     const rows = await mockScores.top({ gameId, mode, limit: 100000 })

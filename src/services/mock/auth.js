@@ -1,7 +1,7 @@
 import { NICK_RULE, nickKey } from '../nickname'
 
 /**
- * 더미 로그인: Firebase 설정 전 개발용 (이 브라우저에만 저장)
+ * 더미 로그인: Supabase 설정 전 개발용 (이 브라우저에만 저장)
  * 실제와 같은 흐름 — '구글로 계속하기' → 처음이면 닉네임 정하기
  */
 const USER_KEY = 'gamdori:user'

@@ -1,6 +1,6 @@
 /**
  * 게임별 점수 상한 (랭킹에 저장할 수 있는 최대 점수)
- * ⚠ firestore.rules 의 maxScores() 와 반드시 같은 값으로 유지하세요.
+ * ⚠ supabase/schema.sql 의 board_limits 값과 반드시 같게 유지하세요. (바꾸면 SQL 도 다시 실행)
  * 정상 플레이가 거부되지 않도록 이론상 최고점보다 넉넉하게 잡은 값이에요.
  */
 export const SCORE_LIMITS = {
@@ -19,6 +19,8 @@ export const SCORE_LIMITS = {
   snake: 200000,
   'whack-mole': 2000000,
   'novel-typing': 200000,
+  seotda: 140000, // 클리어 최대 130,000
+  gostop: 140000, // 클리어 최대 130,000
 }
 
 export const MODES = ['casual', 'competitive']

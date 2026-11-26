@@ -1,11 +1,12 @@
-import { isFirebaseEnabled } from './config'
+import { isSupabaseEnabled } from './config'
 import { mockScores } from './mock/scores'
-import { firebaseScores } from './firebase/scores'
+import { supabaseScores } from './supabase/scores'
 
 /**
- * ScoreAdapter 인터페이스 (mock / firebase 동일)
+ * ScoreAdapter 인터페이스 (mock / supabase 동일)
  *  submit({ user, gameId, score, mode, meta })   유저별 최고점만 유지
  *  top({ gameId, mode, limit })       -> [{ userId, nickname, score, createdAt }]  내림차순
  *  myRank({ userId, gameId, mode })   -> { rank, score } | null
+ *  counts()                          -> { gameId: 랭킹 기록 수 (캐주얼+경쟁) }
  */
-export const scoreService = isFirebaseEnabled ? firebaseScores : mockScores
+export const scoreService = isSupabaseEnabled ? supabaseScores : mockScores

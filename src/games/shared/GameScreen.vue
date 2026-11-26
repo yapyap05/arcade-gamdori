@@ -1,5 +1,5 @@
 <script setup>
-import { watch, onBeforeUnmount } from 'vue'
+import { computed, watch, onBeforeUnmount, useSlots } from 'vue'
 import GameHeader from './GameHeader.vue'
 import TimerBar from './TimerBar.vue'
 import PixelIcon from '../../components/PixelIcon.vue'
@@ -12,6 +12,7 @@ import { useGameCtx } from './context'
  *   [게임판]               ← 기본 슬롯 (+ toast 피드백)
  *   [조작 버튼]            ← controls 슬롯
  *   + 시작/종료 카드 (시작 단계 선택은 캐주얼 또는 freeStage 일 때만)
+ *   lobby 슬롯이 있으면 대기(idle) 화면을 팝업 대신 전체 화면으로 그림 — 슬롯 props: { start }
  */
 const props = defineProps({
   status: { type: String, default: 'idle' }, // idle | playing | over
@@ -31,7 +32,9 @@ const props = defineProps({
 })
 const emit = defineEmits(['start', 'update:stage', 'quit'])
 const ctx = useGameCtx()
+const slots = useSlots()
 const showStage = () => props.stages && (props.mode === 'casual' || props.freeStage)
+const showLobby = computed(() => props.status === 'idle' && !!slots.lobby)
 
 watch(() => props.status, (s) => {
   ctx.playing = s === 'playing'
@@ -49,13 +52,16 @@ function start() {
   <div class="gs">
     <GameHeader v-if="stats" :stats="stats" :quit="quit && status === 'playing'" @quit="emit('quit')" />
     <TimerBar v-if="timer" :pct="timer.pct" :text="timer.text" :label="timer.label" />
-    <div class="body">
-      <slot />
-      <p v-if="toast" class="toast" role="status">{{ toast }}</p>
-    </div>
-    <div v-if="$slots.controls" class="controls"><slot name="controls" /></div>
+    <div v-if="showLobby" class="lobby"><slot name="lobby" :start="start" /></div>
+    <template v-else>
+      <div class="body">
+        <slot />
+        <p v-if="toast" class="toast" role="status">{{ toast }}</p>
+      </div>
+      <div v-if="$slots.controls" class="controls"><slot name="controls" /></div>
+    </template>
 
-    <div v-if="status !== 'playing'" class="overlay">
+    <div v-if="status !== 'playing' && !showLobby" class="overlay">
       <div class="card">
         <PixelIcon v-if="ctx.game" :name="ctx.game.id" :size="56" />
         <h2>{{ status === 'over' ? '게임 종료' : (ctx.game?.title ?? title) }}</h2>
@@ -84,6 +90,7 @@ function start() {
 .gs { position: relative; display: flex; flex-direction: column; gap: 12px; min-height: 420px; min-width: 0; max-width: 100%; }
 .body { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .body > :deep(*), .controls > :deep(*) { min-width: 0; max-width: 100%; }
+.lobby { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .controls { display: flex; flex-direction: column; gap: 10px; }
 .toast {
   position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; margin: 0;

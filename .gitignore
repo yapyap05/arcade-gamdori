@@ -39,25 +39,19 @@ lerna-debug.log*
 .DS_Store
 Thumbs.db
 
-# Firebase
-.firebase/
-firebase-debug.log
-firebase-debug.*.log
-firestore-debug.log
-ui-debug.log
-firebase-service-account.json
-serviceAccountKey.json
-*serviceAccount*.json
-firestore.rules.backup
-firebase-export-*/
-firebase-config.local.*
-.emulator-data/
+# Supabase CLI 로컬 파일
+supabase/.temp/
+supabase/.branches/
+supabase/.env
 
-# Firebase CLI deployment token
+# 서비스 키 (절대 커밋 금지)
+*serviceAccount*.json
+*service_role*
+
+# 이전 Firebase 로컬 파일 (남아 있을 수 있어 계속 제외)
+.firebase/
 .firebaserc
-.firebaserc.local
-FIREBASE_TOKEN
-firebase-token.txt
+.emulator-data/
 
 # Test / coverage
 coverage/

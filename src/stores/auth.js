@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService } from '../services/authService'
-import { isFirebaseEnabled, isEmulator } from '../services/config'
+import { isSupabaseEnabled } from '../services/config'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null) // { id, email, nickname, needsNickname }
@@ -52,7 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user, ready, modalOpen, isLoggedIn, needsNickname,
-    isLocalMode: !isFirebaseEnabled, isEmulator,
+    isLocalMode: !isSupabaseEnabled,
     init, signInWithGoogle, registerNickname, signOut, openLogin, closeLogin,
   }
 })
