@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { games, CATEGORIES, categoryLabel } from '../games/registry'
-import { useRecordsStore } from '../stores/records'
 import { soundOn } from '../games/shared/sfx'
 import { pickDaily } from '../utils/daily'
 import { scoreService } from '../services/scoreService'
@@ -9,14 +8,13 @@ import GameTile from '../components/GameTile.vue'
 import PixelIcon from '../components/PixelIcon.vue'
 import Icon from '../components/Icon.vue'
 
-const records = useRecordsStore()
 const category = ref('all')
-// 정렬: 랭킹 기록이 있는 게임 → 기록 수가 많은 게임 → 제목 가나다순
-const counts = ref({})
-onMounted(async () => { try { counts.value = await scoreService.counts() } catch { /* 실패하면 제목순 */ } })
+// 정렬: 랭킹 기록이 있는 게임 → 기록 수가 많은 게임 → 제목 가나다순 / 타일에는 경쟁 1위 점수
+const stats = ref({})
+onMounted(async () => { try { stats.value = await scoreService.stats() } catch { /* 실패하면 제목순 */ } })
 const sorted = computed(() => games.slice().sort((a, b) => {
-  const na = counts.value[a.id] ?? 0
-  const nb = counts.value[b.id] ?? 0
+  const na = stats.value[a.id]?.n ?? 0
+  const nb = stats.value[b.id]?.n ?? 0
   return (nb > 0) - (na > 0) || nb - na || a.title.localeCompare(b.title, 'ko')
 }))
 const filtered = computed(() => sorted.value.filter((g) => category.value === 'all' || g.category === category.value))
@@ -60,7 +58,7 @@ const toggleSound = () => (soundOn.value = !soundOn.value)
     </div>
 
     <section class="grid" aria-label="게임 목록">
-      <GameTile v-for="g in filtered" :key="g.id" :game="g" :index="games.indexOf(g)" :best="records.bestOf(g.id)" />
+      <GameTile v-for="g in filtered" :key="g.id" :game="g" :index="games.indexOf(g)" :top="stats[g.id]?.top ?? null" />
     </section>
   </div>
 </template>

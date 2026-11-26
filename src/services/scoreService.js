@@ -7,6 +7,6 @@ import { supabaseScores } from './supabase/scores'
  *  submit({ user, gameId, score, mode, meta })   유저별 최고점만 유지
  *  top({ gameId, mode, limit })       -> [{ userId, nickname, score, createdAt }]  내림차순
  *  myRank({ userId, gameId, mode })   -> { rank, score } | null
- *  counts()                          -> { gameId: 랭킹 기록 수 (캐주얼+경쟁) }
+ *  stats()                           -> { gameId: { n: 랭킹 기록 수 (캐주얼+경쟁), top: 경쟁 1위 점수 | null } }
  */
 export const scoreService = isSupabaseEnabled ? supabaseScores : mockScores

@@ -15,12 +15,16 @@ export const mockScores = {
     const b = read()[board(gameId, mode)] || {}
     return Object.values(b).sort((a, c) => c.score - a.score).slice(0, limit)
   },
-  // 게임별 랭킹 기록 수 (캐주얼 + 경쟁) → { gameId: n }
-  async counts() {
+  // 게임별 { n: 랭킹 기록 수 (캐주얼 + 경쟁), top: 경쟁 1위 점수 | null }
+  async stats() {
     const out = {}
     Object.entries(read()).forEach(([b, rows]) => {
-      const gameId = b.replace(/_(casual|competitive)$/, '')
-      out[gameId] = (out[gameId] ?? 0) + Object.keys(rows).length
+      const [, gameId, mode] = b.match(/^(.*)_(casual|competitive)$/) ?? []
+      if (!gameId) return
+      const list = Object.values(rows)
+      const s = (out[gameId] ??= { n: 0, top: null })
+      s.n += list.length
+      if (mode === 'competitive' && list.length) s.top = Math.max(...list.map((r) => r.score))
     })
     return out
   },

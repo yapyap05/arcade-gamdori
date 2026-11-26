@@ -120,18 +120,19 @@ $$;
 revoke all on function public.submit_score(text, integer, jsonb) from public, anon;
 grant execute on function public.submit_score(text, integer, jsonb) to authenticated;
 
--- ───── 보드별 랭킹 기록 수 (홈 화면 게임 정렬용, 읽기 전용) ─────
-create or replace function public.board_counts()
-returns table (board text, n bigint)
+-- ───── 보드별 랭킹 기록 수 · 1위 점수 (홈 화면 정렬·타일 표시용, 읽기 전용) ─────
+drop function if exists public.board_counts(); -- 이전 버전 함수
+create or replace function public.board_stats()
+returns table (board text, n bigint, top integer)
 language sql
 stable
 security invoker
 set search_path = ''
 as $$
-  select s.board, count(*) from public.scores s group by s.board;
+  select s.board, count(*), max(s.score) from public.scores s group by s.board;
 $$;
-revoke all on function public.board_counts() from public;
-grant execute on function public.board_counts() to anon, authenticated;
+revoke all on function public.board_stats() from public;
+grant execute on function public.board_stats() to anon, authenticated;
 
 -- ───── 닉네임 사용 가능 여부 (회원가입 전에 확인, 로그인 전에도 호출 가능) ─────
 -- profiles 는 본인 행만 읽을 수 있어서, 이 함수가 대신 존재 여부만 알려 줌

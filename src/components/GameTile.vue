@@ -6,9 +6,9 @@ import PixelIcon from './PixelIcon.vue'
 const props = defineProps({
   game: { type: Object, required: true },
   index: { type: Number, default: 0 }, // 캔디 팝 타일 색 순환용
-  best: { type: Number, default: null },
+  top: { type: Number, default: null }, // 경쟁 랭킹 1위 점수
 })
-const sub = computed(() => `${categoryLabel(props.game.category)} · ${props.best ? `최고 ${props.best.toLocaleString()}` : '기록 없음'}`)
+const sub = computed(() => `${categoryLabel(props.game.category)} · ${props.top ? `1위 ${props.top.toLocaleString()}` : '랭킹 기록 없음'}`)
 </script>
 
 <template>

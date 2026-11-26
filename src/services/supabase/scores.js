@@ -14,7 +14,7 @@ async function cached(key, load) {
   return value
 }
 // 내 점수를 저장하면 그 보드의 캐시만 지움
-const invalidate = (board) => { for (const k of cache.keys()) if (k.startsWith(board + '|') || k === 'all|counts') cache.delete(k) }
+const invalidate = (board) => { for (const k of cache.keys()) if (k.startsWith(board + '|') || k === 'all|stats') cache.delete(k) }
 
 /** 저장 실패 사유를 화면용으로 구분: error.reason = 'rejected' | 'network' */
 function wrap(e) {
@@ -47,16 +47,19 @@ export const supabaseScores = {
     })
   },
 
-  // 게임별 랭킹 기록 수 (캐주얼 + 경쟁) → { gameId: n }
-  async counts() {
-    return cached('all|counts', async () => {
+  // 게임별 { n: 랭킹 기록 수 (캐주얼 + 경쟁), top: 경쟁 1위 점수 | null }
+  async stats() {
+    return cached('all|stats', async () => {
       const sb = await getSupabase()
-      const { data, error } = await sb.rpc('board_counts')
+      const { data, error } = await sb.rpc('board_stats')
       if (error) throw error
       const out = {}
       data.forEach((r) => {
-        const gameId = r.board.replace(/_(casual|competitive)$/, '')
-        out[gameId] = (out[gameId] ?? 0) + Number(r.n)
+        const [, gameId, mode] = r.board.match(/^(.*)_(casual|competitive)$/) ?? []
+        if (!gameId) return
+        const s = (out[gameId] ??= { n: 0, top: null })
+        s.n += Number(r.n)
+        if (mode === 'competitive') s.top = r.top
       })
       return out
     })
